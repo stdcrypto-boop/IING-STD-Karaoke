@@ -552,7 +552,7 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) {
                                 error = "Tidak bisa memutar rekaman: " + (e.message ?: "file tidak tersedia")
                             }
-                        }, modifier = Modifier.fillMaxWidth()) { Text("▶ Dengarkan vokal saja") }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar suara saja (tanpa musik)") }
                     }
                     if (!recording && lastRecording != null) {
                         OutlinedButton(onClick = {
@@ -663,7 +663,7 @@ class MainActivity : ComponentActivity() {
                             }
                         ) { Text(if (mixing) "⏳ Sedang mixing…" else "🎶 Gabungkan musik + vokal") }
                         if (!supportedSource) {
-                            Text("Mixing hanya mendukung lagu lokal yang dapat diakses, bukan streaming.", color = Color.LightGray, fontSize = 12.sp)
+                            Text("Rekaman ini belum memiliki musik lokal yang bisa digabung. Pilih MP3/MP4 offline lalu mulai rekaman baru.", color = Color.LightGray, fontSize = 12.sp)
                         } else if (!mixCompatible) {
                             Text(
                                 recordingPrefs.getString("last_mix_warning", null)
@@ -678,7 +678,7 @@ class MainActivity : ComponentActivity() {
                                 player.prepare()
                                 player.play()
                                 track = "Hasil mixing"
-                            }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar hasil mixing") }
+                            }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar hasil karaoke (musik + vokal)") }
                             OutlinedButton(onClick = {
                                 try {
                                     val uri = FileProvider.getUriForFile(
