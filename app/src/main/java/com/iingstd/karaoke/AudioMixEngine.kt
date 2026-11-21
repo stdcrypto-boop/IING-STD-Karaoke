@@ -31,10 +31,12 @@ object AudioMixEngine {
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
-        val voiceTemp = File.createTempFile("voice-", ".pcm", context.cacheDir)
+        var voiceTemp: File? = null
         try {
+            val vocalTemp = File.createTempFile("voice-", ".pcm", context.cacheDir)
+            voiceTemp = vocalTemp
             val backing = decode(context, backingUri, backingTemp)
-            val voice = decode(context, voiceUri, voiceTemp)
+            val voice = decode(context, voiceUri, vocalTemp)
             val rate = voice.sampleRate
             require(rate > 0 && backing.sampleRate > 0) { "Sample rate audio tidak valid" }
             require(voice.frames > 0 && voice.frames <= (Int.MAX_VALUE.toLong() - 44L) / 4L) {
@@ -114,7 +116,7 @@ object AudioMixEngine {
             throw e
         } finally {
             backingTemp.delete()
-            voiceTemp.delete()
+            voiceTemp?.delete()
         }
     }
 
@@ -226,19 +228,22 @@ object AudioMixEngine {
                     else -> if (index >= 0) {
                         idle = 0
                         val buffer = decoder.getOutputBuffer(index) ?: error("Output decoder tidak tersedia")
-                        if (info.size > 0) {
-                            buffer.position(info.offset)
-                            buffer.limit(info.offset + info.size)
-                            check(written + info.size <= MAX_PCM_BYTES_PER_TRACK) {
-                                "Audio terlalu panjang untuk mixing versi ini (maksimum 512 MB PCM per track)"
+                        try {
+                            if (info.size > 0) {
+                                buffer.position(info.offset)
+                                buffer.limit(info.offset + info.size)
+                                check(written + info.size <= MAX_PCM_BYTES_PER_TRACK) {
+                                    "Audio terlalu panjang untuk mixing versi ini (maksimum 512 MB PCM per track)"
+                                }
+                                val chunk = ByteArray(info.size)
+                                buffer.get(chunk)
+                                out.write(chunk)
+                                written += chunk.size
                             }
-                            val chunk = ByteArray(info.size)
-                            buffer.get(chunk)
-                            out.write(chunk)
-                            written += chunk.size
+                            outputDone = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+                        } finally {
+                            decoder.releaseOutputBuffer(index, false)
                         }
-                        outputDone = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                        decoder.releaseOutputBuffer(index, false)
                     }
                 }
             }
