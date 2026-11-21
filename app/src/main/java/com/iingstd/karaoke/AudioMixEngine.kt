@@ -77,6 +77,8 @@ object AudioMixEngine {
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
                         val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal) }
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
+                        val balance = estimateBalance(music, vocal, backing, voice, offset)
+                        val balancedMusicGain = (backingGain * balance).coerceIn(0.20, 0.90)
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
@@ -97,7 +99,7 @@ object AudioMixEngine {
                                 val voiceSample = vocalProcessor[channel].process(
                                     vocal.sample(frame, channel).toDouble() / 32768.0
                                 )
-                                val combined = musicProcessor[channel].process(musicSample / 32768.0) * backingGain +
+                                val combined = musicProcessor[channel].process(musicSample / 32768.0) * balancedMusicGain +
                                     voiceSample * voiceGain
                                 val mixed = (softLimit(combined) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
@@ -120,6 +122,37 @@ object AudioMixEngine {
             backingTemp.delete()
             voiceTemp?.delete()
         }
+    }
+
+    /** Estimate backing loudness against active singing, not silent pauses. */
+    private fun estimateBalance(
+        music: PcmFrameReader, vocal: PcmFrameReader,
+        backing: Pcm, voice: Pcm, offset: Long
+    ): Double {
+        val step = (voice.sampleRate / 80).coerceAtLeast(1).toLong()
+        var vocalPower = 0.0
+        var musicPower = 0.0
+        var count = 0
+        var frame = 0L
+        while (frame < voice.frames) {
+            val v = vocal.sample(frame, 0) / 32768.0
+            if (kotlin.math.abs(v) > 0.018) {
+                val pos = offset + frame.toDouble() * backing.sampleRate / voice.sampleRate
+                if (pos < backing.frames) {
+                    val m = music.sample(pos.toLong(), 0) / 32768.0
+                    vocalPower += v * v
+                    musicPower += m * m
+                    count++
+                }
+            }
+            frame += step
+        }
+        if (count < 12) return 1.0
+        val vocalRms = kotlin.math.sqrt(vocalPower / count)
+        val musicRms = kotlin.math.sqrt(musicPower / count)
+        if (vocalRms < 0.025 || musicRms < 0.005) return 1.0
+        val desiredMusic = vocalRms * 0.70
+        return (desiredMusic / (musicRms * 0.75)).coerceIn(0.45, 1.20)
     }
 
     /** Remove microphone rumble and gently compress loud vocal syllables. */
