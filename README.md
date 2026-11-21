@@ -31,3 +31,5 @@ Only use audio and lyrics you have rights to use.
 
 ### Mixing audio panjang (eksperimental)
 Decoder kini menyimpan PCM sementara ke cache aplikasi, bukan menahan seluruh hasil decode di RAM. Batas pengaman sementara 512 MiB per track. Proses memerlukan ruang penyimpanan tambahan untuk dua file PCM dan WAV akhir; file PCM sementara dihapus setelah proses berhasil atau gagal. Mixing masih melakukan decoding penuh sebelum penggabungan, bukan streaming real-time. Kinerja, format decoder, dan ketepatan sinkronisasi harus diuji di perangkat Android sebelum rilis.
+
+PCM disk-backed mixer now caches decoded stereo frames during sample reads to reduce redundant file seeks. Actual performance gains remain device-dependent and unbenchmarked.
