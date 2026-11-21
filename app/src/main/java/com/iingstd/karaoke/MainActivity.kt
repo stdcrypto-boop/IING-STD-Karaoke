@@ -54,8 +54,31 @@ private val Dark = Color(0xFF100C1B)
 private data class Lyric(val timeMs: Long, val text: String)
 
 class MainActivity : ComponentActivity() {
+    private var incomingYouTubeLink by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        acceptSharedYouTube(intent)
+    }
+
+    private fun acceptSharedYouTube(intent: Intent?) {
+        val shared = when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            Intent.ACTION_VIEW -> intent.dataString
+            else -> null
+        } ?: return
+        val link = Regex("https?://[^\\\\s]+").find(shared)?.value ?: return
+        val parsed = Uri.parse(link)
+        val host = parsed.host?.lowercase()?.removePrefix("www.") ?: return
+        if (host == "youtu.be" || host == "youtube.com" || host == "m.youtube.com" ||
+            host == "music.youtube.com") {
+            incomingYouTubeLink = link
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        acceptSharedYouTube(intent)
         setContent {
             val player = remember {
                 ExoPlayer.Builder(this).build().apply {
@@ -128,7 +151,28 @@ class MainActivity : ComponentActivity() {
             var currentSong by remember { mutableStateOf<SavedSong?>(null) }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
+            var onlineSearch by remember { mutableStateOf("") }
+
             var youtubeVideoId by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(incomingYouTubeLink) {
+                incomingYouTubeLink?.let { link ->
+                    val parsed = Uri.parse(link)
+                    val host = parsed.host?.lowercase()?.removePrefix("www.")
+                    val id = if (host == "youtu.be") parsed.pathSegments.firstOrNull()
+                        else if (parsed.pathSegments.firstOrNull() in listOf("shorts", "embed", "live"))
+                            parsed.pathSegments.getOrNull(1)
+                        else parsed.getQueryParameter("v")
+                    if (id != null && id.matches(Regex("[A-Za-z0-9_-]{11}"))) {
+                        player.stop()
+                        player.clearMediaItems()
+                        youtubeVideoId = id
+                        currentSong = null
+                        mode = "Online"
+                        url = link
+                    }
+                    incomingYouTubeLink = null
+                }
+            }
             var localVideoUri by remember { mutableStateOf<String?>(null) }
             var track by remember { mutableStateOf("Belum ada lagu") }
             var playing by remember { mutableStateOf(false) }
@@ -277,8 +321,25 @@ class MainActivity : ComponentActivity() {
                             Text("📁 Pilih MP3 atau video MP4 dari HP")
                         }
                     } else {
+                        OutlinedTextField(value = onlineSearch, onValueChange = { onlineSearch = it },
+                            label = { Text("Judul lagu atau penyanyi") },
+                            singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = {
+                            val query = onlineSearch.trim()
+                            if (query.isBlank()) {
+                                error = "Tulis judul lagu terlebih dahulu"
+                            } else {
+                                val searchUri = Uri.parse("https://www.youtube.com/results")
+                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke").build()
+                                runCatching {
+                                    startActivity(Intent(Intent.ACTION_VIEW, searchUri))
+                                }.onFailure { error = "Tidak dapat membuka YouTube" }
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
+                        Text("Setelah memilih video di YouTube, tekan Bagikan → IING STD KARAOKE. Video akan disiapkan di aplikasi. Tidak perlu salin link.",
+                            color = Color.LightGray, fontSize = 12.sp)
                         OutlinedTextField(value = url, onValueChange = { url = it },
-                            label = { Text("Tempel link YouTube atau audio HTTPS") },
+                            label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
                             val link = url.trim()
