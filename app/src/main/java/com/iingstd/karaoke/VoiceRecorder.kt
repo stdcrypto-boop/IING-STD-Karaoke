@@ -34,7 +34,7 @@ class VoiceRecorder(private val context: Context) {
         output = uri
         try {
             val fd = context.contentResolver.openFileDescriptor(uri, "w") ?: error("Cannot open recording file")
-            val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
+            val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
             fd.use {
                 r.setAudioSource(MediaRecorder.AudioSource.MIC)
