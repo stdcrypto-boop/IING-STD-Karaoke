@@ -393,7 +393,45 @@ class MainActivity : ComponentActivity() {
                                         .putString("last_mix_warning", sessionMixWarning)
                                         .apply()
                                 }
-                                recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
+                                recordingStatus = if (saved != null) "Vokal tersimpan. Menyiapkan hasil karaoke…" else "Rekaman gagal"
+                                // A local backing track can be mixed after recording; the microphone
+                                // recording alone never contains ExoPlayer's music output.
+                                val backing = sessionSongUri?.let(Uri::parse)
+                                if (saved != null && sessionMixCompatible && backing != null &&
+                                    (backing.scheme == "content" || backing.scheme == "file")) {
+                                    val backingStart = sessionStartPositionMs
+                                    val selectedMusicGain = musicGain
+                                    val selectedVoiceGain = voiceGain
+                                    mixing = true
+                                    mixStatus = "Menggabungkan musik dan vokal otomatis…"
+                                    mixScope.launch {
+                                        try {
+                                            val result = withContext(Dispatchers.IO) {
+                                                val folder = File(getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC), "IING STD Karaoke")
+                                                check(folder.exists() || folder.mkdirs()) { "Folder output tidak tersedia" }
+                                                val destination = File(folder, "IING-MIX-${System.currentTimeMillis()}.wav")
+                                                try {
+                                                    AudioMixEngine.mixToWav(
+                                                        this@MainActivity, backing, saved, backingStart,
+                                                        destination, selectedMusicGain, selectedVoiceGain
+                                                    )
+                                                } catch (e: Exception) {
+                                                    destination.delete()
+                                                    throw e
+                                                }
+                                            }
+                                            mixedFile = result
+                                            recordingPrefs.edit().putString("last_mix_path", result.absolutePath).apply()
+                                            mixStatus = "Hasil karaoke (musik + vokal) siap: ${result.name}"
+                                        } catch (e: Exception) {
+                                            mixStatus = "Penggabungan otomatis gagal: ${e.message ?: "format tidak didukung"}. Vokal asli tetap tersimpan."
+                                        } finally {
+                                            mixing = false
+                                        }
+                                    }
+                                } else if (saved != null) {
+                                    recordingStatus = "Vokal tersimpan. Musik hanya bisa digabung otomatis dari lagu lokal yang diputar normal tanpa jeda."
+                                }
                             } catch (e: Exception) {
                                 recording = false
                                 recordingPaused = false
@@ -442,7 +480,7 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) {
                                 error = "Tidak bisa memutar rekaman: " + (e.message ?: "file tidak tersedia")
                             }
-                        }, modifier = Modifier.fillMaxWidth()) { Text("▶ Dengarkan rekaman terakhir") }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("▶ Dengarkan vokal saja") }
                     }
                     if (!recording && lastRecording != null) {
                         OutlinedButton(onClick = {
