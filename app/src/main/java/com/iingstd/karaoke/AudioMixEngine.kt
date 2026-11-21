@@ -27,7 +27,8 @@ object AudioMixEngine {
         backingStartMs: Long,
         destination: File,
         backingGain: Float = 0.65f,
-        voiceGain: Float = 1f
+        voiceGain: Float = 1f,
+        smoothVocal: Boolean = true
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
@@ -74,7 +75,8 @@ object AudioMixEngine {
                         header.putInt(bytes)
                         output.write(header.array())
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
-                        val vocalProcessor = Array(2) { VocalProcessor(rate) }
+                        val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal) }
+                        val musicProcessor = Array(2) { MusicProcessor(rate) }
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
@@ -95,7 +97,7 @@ object AudioMixEngine {
                                 val voiceSample = vocalProcessor[channel].process(
                                     vocal.sample(frame, channel).toDouble() / 32768.0
                                 )
-                                val combined = musicSample / 32768.0 * backingGain +
+                                val combined = musicProcessor[channel].process(musicSample / 32768.0) * backingGain +
                                     voiceSample * voiceGain
                                 val mixed = (softLimit(combined) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
@@ -121,8 +123,8 @@ object AudioMixEngine {
     }
 
     /** Remove microphone rumble and gently compress loud vocal syllables. */
-    private class VocalProcessor(sampleRate: Int) {
-        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * 90.0 / sampleRate)
+    private class VocalProcessor(sampleRate: Int, private val smooth: Boolean) {
+        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (smooth) 110.0 else 75.0) / sampleRate)
         private val attack = kotlin.math.exp(-1.0 / (sampleRate * 0.008))
         private val release = kotlin.math.exp(-1.0 / (sampleRate * 0.120))
         private var lowPass = 0.0
@@ -134,8 +136,19 @@ object AudioMixEngine {
             val level = kotlin.math.abs(highPassed)
             val smoothing = if (level > envelope) attack else release
             envelope = smoothing * envelope + (1.0 - smoothing) * level
-            val gain = if (envelope > 0.18) kotlin.math.sqrt(0.18 / envelope) else 1.0
-            return highPassed * gain
+            val threshold = if (smooth) 0.12 else 0.20
+            val gain = if (envelope > threshold) kotlin.math.sqrt(threshold / envelope) else 1.0
+            return highPassed * gain * (if (smooth) 1.10 else 1.0)
+        }
+    }
+
+    /** Subsonic filter removes DC and very-low-frequency thumps, preserving audible bass. */
+    private class MusicProcessor(sampleRate: Int) {
+        private val alpha = kotlin.math.exp(-2.0 * Math.PI * 28.0 / sampleRate)
+        private var low = 0.0
+        fun process(sample: Double): Double {
+            low = (1.0 - alpha) * sample + alpha * low
+            return sample - low
         }
     }
 
