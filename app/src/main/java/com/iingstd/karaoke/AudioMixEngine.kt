@@ -212,14 +212,23 @@ object AudioMixEngine {
                 when (val index = decoder.dequeueOutputBuffer(info, 10000)) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         val decoded = decoder.outputFormat
-                        rate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                        channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        val newRate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        val newChannels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        require(newRate > 0 && newChannels in 1..2) {
+                            "Format audio hasil decoding tidak didukung"
+                        }
                         if (decoded.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
                             require(decoded.getInteger(MediaFormat.KEY_PCM_ENCODING) == 2) {
                                 "Decoder harus menghasilkan PCM 16-bit"
                             }
                         }
-                        require(channels in 1..2) { "Hanya audio mono atau stereo didukung" }
+                        // A mid-stream format change would corrupt the temporary raw PCM
+                        // because it has no per-segment format metadata.
+                        require(written == 0L || (newRate == rate && newChannels == channels)) {
+                            "Format audio berubah saat decoding"
+                        }
+                        rate = newRate
+                        channels = newChannels
                     }
                     MediaCodec.INFO_TRY_AGAIN_LATER -> {
                         idle++
