@@ -15,7 +15,7 @@ import java.util.Locale
 
 /**
  * Microphone-only AAC/M4A recording. Does NOT mix the backing track.
- * Saved in Music/IING STD Karaoke via MediaStore.
+ * Android 10+: public Music folder via MediaStore; Android 8-9: app-specific Music folder.
  */
 class VoiceRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
@@ -86,10 +86,13 @@ class VoiceRecorder(private val context: Context) {
             recorder?.runCatching { reset(); release() }
             recorder = null
             paused = false
-            descriptor?.close()
+            runCatching { descriptor?.close() }
             descriptor = null
-            if (Build.VERSION.SDK_INT >= 29) context.contentResolver.delete(uri, null, null)
-            else legacyFile?.delete()
+            if (Build.VERSION.SDK_INT >= 29) {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            } else {
+                runCatching { legacyFile?.delete() }
+            }
             legacyFile = null
             output = null
             throw e
@@ -97,31 +100,37 @@ class VoiceRecorder(private val context: Context) {
     }
 
     fun stop(): Uri? {
-        val r = recorder ?: return null
+        val active = recorder ?: return null
         val uri = output
         recorder = null
         paused = false
         output = null
         var success = false
         try {
-            r.stop()
+            active.stop()
             success = true
         } finally {
-            runCatching { r.reset() }
-            r.release()
-            descriptor?.close()
+            runCatching { active.reset() }
+            runCatching { active.release() }
+            runCatching { descriptor?.close() }
             descriptor = null
             if (uri != null) {
                 if (Build.VERSION.SDK_INT >= 29) {
                     if (success) {
-                        context.contentResolver.update(uri, ContentValues().apply {
-                            put(MediaStore.Audio.Media.IS_PENDING, 0)
-                        }, null, null)
-                    } else context.contentResolver.delete(uri, null, null)
-                } else if (!success) legacyFile?.delete()
+                        runCatching {
+                            context.contentResolver.update(uri, ContentValues().apply {
+                                put(MediaStore.Audio.Media.IS_PENDING, 0)
+                            }, null, null)
+                        }
+                    } else {
+                        runCatching { context.contentResolver.delete(uri, null, null) }
+                    }
+                } else if (!success) {
+                    runCatching { legacyFile?.delete() }
+                }
             }
+            legacyFile = null
         }
-        legacyFile = null
         return if (success) uri else null
     }
 }
