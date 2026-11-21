@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                                 error = "Gunakan tautan audio HTTPS langsung"
                             } else {
                                 try {
-                                    playSong(SavedSong("Streaming online", url.trim(), true, System.currentTimeMillis()))
+                                    playSong(SavedSong(Uri.parse(url.trim()).lastPathSegment ?: "Streaming online", url.trim(), true, System.currentTimeMillis()))
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
@@ -179,6 +179,12 @@ class MainActivity : ComponentActivity() {
                                 Text(tab, color = if (selectedList == tab) Pink else Color.LightGray)
                             }
                         }
+                    }
+                    if (selectedList == "Riwayat" && history.isNotEmpty()) {
+                        TextButton(onClick = {
+                            library.clearHistory()
+                            history = library.history()
+                        }) { Text("Hapus semua riwayat") }
                     }
                     if (error.isNotBlank()) Text(error, color = Color(0xFFFF9E9E))
                     val current = activeLyricIndex
