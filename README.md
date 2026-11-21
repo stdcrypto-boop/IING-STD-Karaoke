@@ -42,3 +42,6 @@ The disk-backed PCM mixer now uses 64 KiB buffered reads for both audio tracks t
 File PCM sementara dibersihkan meskipun pembuatan file kedua gagal. Buffer output decoder dilepaskan melalui `finally` jika pemrosesan sampel gagal. Perubahan ini belum menggantikan pengujian build dan uji mixing pada perangkat fisik.
 
 Decoder output changes in sample rate or channel count after PCM samples have been written are now rejected, preventing mixed-format raw PCM from silently producing a corrupted WAV.
+
+### YouTube (mode Online)
+Tautan video YouTube standar, youtu.be, Shorts, dan live kini membuka pemutar video YouTube tertanam (WebView/iframe) di dalam aplikasi. Pemutaran bergantung pada koneksi, kebijakan embed pemilik video, dan dukungan WebView/YouTube; tersedia tombol membuka aplikasi YouTube sebagai cadangan. Pemutar YouTube terpisah dari Media3: kontrol kecepatan/pitch, sinkronisasi rekaman, dan mixing/ekspor musik YouTube **belum** didukung. Gunakan file musik lokal untuk mixing. Fitur ini belum diuji di perangkat fisik.
