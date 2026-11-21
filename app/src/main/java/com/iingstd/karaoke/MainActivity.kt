@@ -260,7 +260,11 @@ class MainActivity : ComponentActivity() {
                                         parsed.pathSegments.firstOrNull() == "live") parsed.pathSegments.getOrNull(1)
                                     else parsed.getQueryParameter("v")
                                 if (id != null && id.matches(Regex("[A-Za-z0-9_-]{11}"))) {
-                                    player.pause()
+                                    player.stop()
+                                    player.clearMediaItems()
+                                    localVideoUri = null
+                                    currentSong = null
+                                    lyrics = emptyList()
                                     youtubeVideoId = id
                                     track = "YouTube • " + id
                                     error = ""
