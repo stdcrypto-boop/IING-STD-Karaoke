@@ -18,6 +18,8 @@ import java.nio.ByteOrder
  */
 object AudioMixEngine {
     data class Pcm(val samples: ShortArray, val sampleRate: Int, val channels: Int)
+    // Both tracks are decoded in memory; cap each to avoid exhausting device RAM.
+    private const val MAX_PCM_BYTES_PER_TRACK = 32 * 1024 * 1024
 
     fun mixToWav(
         context: Context,
@@ -35,11 +37,18 @@ object AudioMixEngine {
             "Sample rate berbeda; resampling belum didukung"
         }
         val rate = voice.sampleRate
-        val offsetFrames = ((backingStartMs.coerceAtLeast(0) * rate) / 1000).toInt()
+        val safeStartMs = backingStartMs.coerceAtLeast(0)
+        val offsetFramesLong = (safeStartMs / 1000) * rate.toLong() +
+            (safeStartMs % 1000) * rate / 1000
+        require(offsetFramesLong <= Int.MAX_VALUE) { "Posisi musik terlalu besar" }
+        val offsetFrames = offsetFramesLong.toInt()
         val voiceFrames = voice.samples.size / voice.channels
         val backingFrames = backing.samples.size / backing.channels
         require(offsetFrames < backingFrames) { "Posisi awal melewati durasi musik" }
-        val frames = minOf(voiceFrames, backingFrames - offsetFrames)
+        require(voiceFrames <= backingFrames - offsetFrames) {
+            "Musik pengiring berakhir sebelum rekaman vokal selesai"
+        }
+        val frames = voiceFrames
         require(frames > 0) { "Tidak ada audio yang dapat digabungkan" }
         require(frames.toLong() * 4 <= Int.MAX_VALUE - 44) { "Rekaman terlalu panjang untuk WAV" }
         destination.parentFile?.mkdirs()
@@ -145,6 +154,9 @@ object AudioMixEngine {
                         if (info.size > 0) {
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
+                            check(out.size().toLong() + info.size <= MAX_PCM_BYTES_PER_TRACK) {
+                                "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
+                            }
                             val chunk = ByteArray(info.size)
                             buffer.get(chunk)
                             out.write(chunk)
