@@ -404,8 +404,12 @@ class MainActivity : ComponentActivity() {
                                         settings.domStorageEnabled = true
                                         webChromeClient = WebChromeClient()
                                         webViewClient = WebViewClient()
-                                        val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#000"><iframe width="100%" height="100%" src="https://www.youtube-nocookie.com/embed/$videoId?playsinline=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></body></html>"""
-                                        loadDataWithBaseURL("https://www.youtube.com/", html, "text/html", "UTF-8", null)
+                                        // Load the official YouTube embed as the top-level page.
+                                        // The previous nested youtube-nocookie iframe returned
+                                        // playback error 152-4 on some Android WebViews.
+                                        settings.mediaPlaybackRequiresUserGesture = true
+                                        settings.loadsImagesAutomatically = true
+                                        loadUrl("https://www.youtube.com/embed/$videoId?playsinline=1&rel=0")
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(230.dp),
