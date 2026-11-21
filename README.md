@@ -9,12 +9,13 @@ Android karaoke player with offline audio and direct HTTPS streaming.
 - Local song favorites and listening history.
 - Record microphone audio to AAC/M4A; pause and resume recording.
 - Play and share the latest voice recording.
-- Save the backing-track URI and playback position at recording start as metadata for future synchronization.
+- Save the backing-track URI and playback position at recording start.
+- Offline WAV mixing button for accessible local backing tracks and microphone recordings, with independent music/voice gain, playback, and sharing.
 - Audio-focus and headphone-disconnection handling.
 - Scrollable Jetpack Compose interface.
 
 ## Recording behavior and limitations
-**Recording currently captures microphone audio only.** It does **not** digitally combine the backing track and microphone into one mixed file. Backing-track metadata is not an audio mix and does not guarantee sample-accurate alignment.
+**Microphone recording itself captures vocals only.** A separate offline mixing action now decodes the recorded voice and accessible local backing track, combines them, and exports a stereo WAV. It requires matching sample rates, supports mono/stereo 16-bit PCM decoding, and does not support streaming backing tracks. The mixer uses the saved playback position, but cannot compensate for device recording latency, changes to playback speed/pitch, or pauses during recording. It has not been device-tested. Long files can exhaust memory because both tracks are decoded in memory.
 
 For cleaner vocals, use wired headphones while recording to avoid speaker bleed. On Android 10+ recordings are saved to Music/IING STD Karaoke via MediaStore. On Android 8–9 they are saved to the app-specific external Music folder and may be deleted if the app is uninstalled.
 
