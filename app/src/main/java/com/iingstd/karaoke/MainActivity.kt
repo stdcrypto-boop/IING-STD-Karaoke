@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import java.io.BufferedReader
@@ -33,8 +35,9 @@ private data class Lyric(val timeMs: Long, val text: String)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val player = ExoPlayer.Builder(this).build()
         setContent {
+            val player = remember { ExoPlayer.Builder(this).build() }
+            DisposableEffect(player) { onDispose { player.release() } }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
             var track by remember { mutableStateOf("Belum ada lagu") }
@@ -66,6 +69,15 @@ class MainActivity : ComponentActivity() {
                         error = if (lyrics.isEmpty()) "Tidak ada timestamp LRC yang valid" else ""
                     } catch (e: Exception) { error = e.message ?: "Gagal membaca lirik" }
                 }
+            }
+            DisposableEffect(player) {
+                val listener = object : Player.Listener {
+                    override fun onPlayerError(exception: PlaybackException) {
+                        error = "Tidak dapat memutar audio: " + (exception.message ?: "format atau jaringan tidak didukung")
+                    }
+                }
+                player.addListener(listener)
+                onDispose { player.removeListener(listener) }
             }
             LaunchedEffect(player) {
                 while (true) {
@@ -162,9 +174,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-    override fun onDestroy() {
-        super.onDestroy()
     }
 }
 private fun formatTime(ms: Long): String {
