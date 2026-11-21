@@ -156,6 +156,12 @@ class MainActivity : ComponentActivity() {
                         recordingStatus = "Pilih MP3 atau MP4 offline dahulu agar hasil rekaman bisa berisi musik dan vokal."
                         return
                     }
+                    // Restore the selected karaoke song after previewing vocal/mix output.
+                    val selectedUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
+                    if (selectedUri != song.uri) {
+                        player.setMediaItem(MediaItem.fromUri(song.uri))
+                        player.prepare()
+                    }
                     // Always restart the backing track so a new take has a clean timeline.
                     player.seekTo(0)
                     player.playbackParameters = PlaybackParameters(1f, 1f)
@@ -164,10 +170,10 @@ class MainActivity : ComponentActivity() {
                     player.repeatMode = Player.REPEAT_MODE_OFF
                     repeatOne = false
                     player.play()
-                    sessionSongUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
+                    sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
-                    sessionMixCompatible = player.isPlaying &&
+                    sessionMixCompatible =
                         player.playbackParameters.speed == 1f &&
                         player.playbackParameters.pitch == 1f &&
                         player.repeatMode == Player.REPEAT_MODE_OFF
@@ -442,8 +448,8 @@ class MainActivity : ComponentActivity() {
                                     val expectedPosition = sessionStartPositionMs + elapsed.coerceAtLeast(0)
                                     val drift = kotlin.math.abs(player.currentPosition - expectedPosition)
                                     if (player.currentMediaItem?.localConfiguration?.uri?.toString() != sessionSongUri ||
-                                        !player.isPlaying || player.playbackParameters.speed != 1f ||
-                                        player.playbackParameters.pitch != 1f || drift > 1500L
+                                        player.playbackParameters.speed != 1f ||
+                                        player.playbackParameters.pitch != 1f || (player.isPlaying && drift > 3000L)
                                     ) {
                                         sessionMixCompatible = false
                                         sessionMixWarning = "Posisi atau pemutaran musik berubah selama rekaman (selisih ${drift} ms)"
@@ -540,7 +546,7 @@ class MainActivity : ComponentActivity() {
                                 player.prepare()
                                 player.play()
                                 track = "Hasil rekaman suara"
-                                currentSong = null
+                                // Keep the selected backing track for the next recording.
                                 lyrics = emptyList()
                                 error = ""
                             } catch (e: Exception) {
@@ -672,7 +678,6 @@ class MainActivity : ComponentActivity() {
                                 player.prepare()
                                 player.play()
                                 track = "Hasil mixing"
-                                currentSong = null
                             }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar hasil mixing") }
                             OutlinedButton(onClick = {
                                 try {
