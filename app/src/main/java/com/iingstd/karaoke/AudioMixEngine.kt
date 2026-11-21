@@ -1,0 +1,170 @@
+package com.iingstd.karaoke
+
+import android.content.Context
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.net.Uri
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+/**
+ * Offline prototype for mixing decoded PCM from two accessible local audio URIs.
+ * Both streams must decode to 16-bit PCM at the same sample rate.
+ * Output is stereo PCM WAV. Call on a background thread, never the UI thread.
+ */
+object AudioMixEngine {
+    data class Pcm(val samples: ShortArray, val sampleRate: Int, val channels: Int)
+
+    fun mixToWav(
+        context: Context,
+        backingUri: Uri,
+        voiceUri: Uri,
+        backingStartMs: Long,
+        destination: File,
+        backingGain: Float = 0.65f,
+        voiceGain: Float = 1f
+    ): File {
+        require(backingGain in 0f..1f && voiceGain in 0f..1f)
+        val backing = decode(context, backingUri)
+        val voice = decode(context, voiceUri)
+        require(backing.sampleRate == voice.sampleRate) {
+            "Sample rate berbeda; resampling belum didukung"
+        }
+        val rate = voice.sampleRate
+        val offsetFrames = ((backingStartMs.coerceAtLeast(0) * rate) / 1000).toInt()
+        val voiceFrames = voice.samples.size / voice.channels
+        val backingFrames = backing.samples.size / backing.channels
+        require(offsetFrames < backingFrames) { "Posisi awal melewati durasi musik" }
+        val frames = minOf(voiceFrames, backingFrames - offsetFrames)
+        require(frames > 0) { "Tidak ada audio yang dapat digabungkan" }
+        require(frames.toLong() * 4 <= Int.MAX_VALUE - 44) { "Rekaman terlalu panjang untuk WAV" }
+        destination.parentFile?.mkdirs()
+        FileOutputStream(destination).use { output ->
+            val bytes = frames * 4
+            val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+            header.put("RIFF".toByteArray(Charsets.US_ASCII))
+            header.putInt(36 + bytes)
+            header.put("WAVEfmt ".toByteArray(Charsets.US_ASCII))
+            header.putInt(16)
+            header.putShort(1)
+            header.putShort(2)
+            header.putInt(rate)
+            header.putInt(rate * 4)
+            header.putShort(4)
+            header.putShort(16)
+            header.put("data".toByteArray(Charsets.US_ASCII))
+            header.putInt(bytes)
+            output.write(header.array())
+            val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
+            for (frame in 0 until frames) {
+                for (channel in 0..1) {
+                    val music = sample(backing, frame + offsetFrames, channel)
+                    val vocal = sample(voice, frame, channel)
+                    val mixed = (music * backingGain + vocal * voiceGain)
+                        .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    if (block.remaining() < 2) {
+                        output.write(block.array(), 0, block.position())
+                        block.clear()
+                    }
+                    block.putShort(mixed.toShort())
+                }
+            }
+            if (block.position() > 0) output.write(block.array(), 0, block.position())
+        }
+        return destination
+    }
+
+    private fun sample(pcm: Pcm, frame: Int, channel: Int): Int {
+        val index = frame * pcm.channels + if (pcm.channels == 1) 0 else channel
+        return pcm.samples[index].toInt()
+    }
+
+    private fun decode(context: Context, uri: Uri): Pcm {
+        val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
+        try {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
+                extractor.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            } ?: error("Audio tidak dapat dibuka")
+            val track = (0 until extractor.trackCount).firstOrNull {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: error("Tidak ada track audio")
+            extractor.selectTrack(track)
+            val format = extractor.getTrackFormat(track)
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: error("Format audio tidak diketahui")
+            val decoder = MediaCodec.createDecoderByType(mime)
+            codec = decoder
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+            val out = ByteArrayOutputStream()
+            val info = MediaCodec.BufferInfo()
+            var inputDone = false
+            var outputDone = false
+            var rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            var idle = 0
+            while (!outputDone) {
+                if (!inputDone) {
+                    val index = decoder.dequeueInputBuffer(10000)
+                    if (index >= 0) {
+                        val buffer = decoder.getInputBuffer(index) ?: error("Input decoder tidak tersedia")
+                        buffer.clear()
+                        val size = extractor.readSampleData(buffer, 0)
+                        if (size < 0) {
+                            decoder.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            decoder.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                when (val index = decoder.dequeueOutputBuffer(info, 10000)) {
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        val decoded = decoder.outputFormat
+                        rate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        if (decoded.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                            require(decoded.getInteger(MediaFormat.KEY_PCM_ENCODING) == 2) {
+                                "Decoder harus menghasilkan PCM 16-bit"
+                            }
+                        }
+                        require(channels in 1..2) { "Hanya audio mono atau stereo didukung" }
+                    }
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        idle++
+                        check(idle < 500) { "Decoder audio tidak merespons" }
+                    }
+                    else -> if (index >= 0) {
+                        idle = 0
+                        val buffer = decoder.getOutputBuffer(index) ?: error("Output decoder tidak tersedia")
+                        if (info.size > 0) {
+                            buffer.position(info.offset)
+                            buffer.limit(info.offset + info.size)
+                            val chunk = ByteArray(info.size)
+                            buffer.get(chunk)
+                            out.write(chunk)
+                        }
+                        outputDone = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+                        decoder.releaseOutputBuffer(index, false)
+                    }
+                }
+            }
+            require(channels in 1..2) { "Hanya audio mono atau stereo didukung" }
+            val bytes = out.toByteArray()
+            require(bytes.size % 2 == 0) { "PCM tidak lengkap" }
+            val pcm = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+            val samples = ShortArray(pcm.remaining())
+            pcm.get(samples)
+            return Pcm(samples, rate, channels)
+        } finally {
+            runCatching { codec?.stop() }
+            runCatching { codec?.release() }
+            extractor.release()
+        }
+    }
+}
