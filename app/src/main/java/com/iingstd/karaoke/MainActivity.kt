@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
             var duration by remember { mutableLongStateOf(0L) }
             var speed by remember { mutableFloatStateOf(1f) }
             var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
+            val lyricListState = rememberLazyListState()
             var error by remember { mutableStateOf("") }
             val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 if (uri != null) {
@@ -87,6 +89,10 @@ class MainActivity : ComponentActivity() {
                     delay(250)
                 }
             }
+            val activeLyricIndex = lyrics.indexOfLast { it.timeMs <= position }
+            LaunchedEffect(activeLyricIndex, lyrics) {
+                if (activeLyricIndex >= 0) lyricListState.animateScrollToItem(activeLyricIndex)
+            }
             MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Dark, surface = Color(0xFF21182D))) {
                 Column(
                     Modifier.fillMaxSize().background(Dark).padding(20.dp),
@@ -113,7 +119,7 @@ class MainActivity : ComponentActivity() {
                             label = { Text("Tautan audio HTTPS langsung") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
-                            if (!url.startsWith("https://", ignoreCase = true)) {
+                            if (!url.trim().startsWith("https://", ignoreCase = true)) {
                                 error = "Gunakan tautan audio HTTPS langsung"
                             } else {
                                 try {
@@ -152,8 +158,9 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
                     if (error.isNotBlank()) Text(error, color = Color(0xFFFF9E9E))
-                    val current = lyrics.indexOfLast { it.timeMs <= position }
+                    val current = activeLyricIndex
                     LazyColumn(
+                        state = lyricListState,
                         modifier = Modifier.fillMaxWidth().weight(1f)
                             .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
