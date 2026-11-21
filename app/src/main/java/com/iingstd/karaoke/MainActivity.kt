@@ -282,6 +282,16 @@ class MainActivity : ComponentActivity() {
                                 recording = false
                                 recordingPaused = false
                                 if (saved != null) {
+                                    val elapsed = android.os.SystemClock.elapsedRealtime() - recordingStartedAt - recordingPausedMs
+                                    val expectedPosition = sessionStartPositionMs + elapsed.coerceAtLeast(0)
+                                    val drift = kotlin.math.abs(player.currentPosition - expectedPosition)
+                                    if (player.currentMediaItem?.localConfiguration?.uri?.toString() != sessionSongUri ||
+                                        !player.isPlaying || player.playbackParameters.speed != 1f ||
+                                        player.playbackParameters.pitch != 1f || drift > 1500L
+                                    ) {
+                                        sessionMixCompatible = false
+                                        sessionMixWarning = "Posisi atau pemutaran musik berubah selama rekaman (selisih ${drift} ms)"
+                                    }
                                     lastRecording = saved
                                     recordingPrefs.edit()
                                         .putString("last_uri", saved.toString())
