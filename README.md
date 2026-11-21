@@ -40,3 +40,5 @@ The disk-backed PCM mixer now uses 64 KiB buffered reads for both audio tracks t
 
 ### Stabilitas ekspor
 File PCM sementara dibersihkan meskipun pembuatan file kedua gagal. Buffer output decoder dilepaskan melalui `finally` jika pemrosesan sampel gagal. Perubahan ini belum menggantikan pengujian build dan uji mixing pada perangkat fisik.
+
+Decoder output changes in sample rate or channel count after PCM samples have been written are now rejected, preventing mixed-format raw PCM from silently producing a corrupted WAV.
