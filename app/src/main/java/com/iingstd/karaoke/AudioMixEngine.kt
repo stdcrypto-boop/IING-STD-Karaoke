@@ -130,7 +130,11 @@ object AudioMixEngine {
             if (format.containsKey(MediaFormat.KEY_DURATION)) {
                 val durationUs = format.getLong(MediaFormat.KEY_DURATION)
                 if (durationUs > 0) {
-                    val estimatedBytes = durationUs / 1000L * sourceRate * sourceChannels * 2L / 1000L
+                    // Divide first to avoid overflow on malformed duration metadata.
+                    val estimatedBytes = (durationUs / 1_000_000L) *
+                        sourceRate.toLong() * sourceChannels * 2L +
+                        ((durationUs % 1_000_000L) * sourceRate / 1_000_000L) *
+                        sourceChannels * 2L
                     require(estimatedBytes <= MAX_PCM_BYTES_PER_TRACK) {
                         "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
                     }
