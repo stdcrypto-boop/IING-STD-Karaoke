@@ -2,6 +2,8 @@ package com.iingstd.karaoke
 
 import android.content.ContentValues
 import android.content.Context
+import android.media.AudioManager
+import android.media.AudioDeviceInfo
 import android.media.MediaRecorder
 import android.os.Build
 import android.provider.MediaStore
@@ -42,7 +44,7 @@ class VoiceRecorder(private val context: Context) {
     }
 
 
-    fun start(): Uri {
+    fun start(preferExternalMic: Boolean = false): Uri {
         check(recorder == null) { "Recording already in progress" }
         paused = false
         val name = "IING-VOICE-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".m4a"
@@ -79,6 +81,19 @@ class VoiceRecorder(private val context: Context) {
                 if (fd != null) r.setOutputFile(fd.fileDescriptor)
                 else r.setOutputFile(legacyFile?.absolutePath ?: error("Missing output file"))
                 r.prepare()
+                if (Build.VERSION.SDK_INT >= 28 && preferExternalMic) {
+                    val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                    val external = inputs.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                        it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                        it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    } ?: error("Mikrofon headset/USB/Bluetooth tidak terdeteksi. Pilih mikrofon HP.")
+                    check(r.setPreferredDevice(external)) {
+                        "Tidak dapat memilih mikrofon eksternal. Pilih mikrofon HP."
+                    }
+                }
                 r.start()
             }
             return uri
