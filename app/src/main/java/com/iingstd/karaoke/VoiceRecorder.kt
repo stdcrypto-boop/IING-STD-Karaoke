@@ -72,6 +72,7 @@ class VoiceRecorder(private val context: Context) {
             descriptor = fd
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
+            var selectedInputId: Int? = null
             run {
                 r.setAudioSource(if (Build.VERSION.SDK_INT >= 29) MediaRecorder.AudioSource.VOICE_PERFORMANCE else MediaRecorder.AudioSource.MIC)
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -90,24 +91,18 @@ class VoiceRecorder(private val context: Context) {
                         it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
                         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     } ?: error("Mikrofon headset/USB/Bluetooth tidak terdeteksi. Pilih mikrofon HP.")
+                    selectedInputId = external.id
                     check(r.setPreferredDevice(external)) {
                         "Tidak dapat memilih mikrofon eksternal. Pilih mikrofon HP."
                     }
                 }
                 r.start()
-                // setPreferredDevice is a request, not proof that Android routed the mic.
-                // Fail explicitly when Android reports a different active input.
-                if (Build.VERSION.SDK_INT >= 28 && preferExternalMic) {
+                // Verify the exact requested microphone, not only its device type.
+                if (Build.VERSION.SDK_INT >= 28 && selectedInputId != null) {
                     val routed = r.routedDevice
                     if (routed != null) {
-                        val externalTypes = setOf(
-                            AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                            AudioDeviceInfo.TYPE_USB_DEVICE,
-                            AudioDeviceInfo.TYPE_USB_HEADSET,
-                            AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                        )
-                        check(routed.type in externalTypes) {
-                            "Android memakai mikrofon HP, bukan mikrofon eksternal. Coba sambungkan ulang headset."
+                        check(routed.id == selectedInputId) {
+                            "Input rekaman dialihkan ke ${routed.productName}. Sambungkan ulang mikrofon eksternal atau pilih mikrofon HP."
                         }
                     }
                 }
