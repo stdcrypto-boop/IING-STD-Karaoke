@@ -444,16 +444,16 @@ class MainActivity : ComponentActivity() {
                                 recording = false
                                 recordingPaused = false
                                 if (saved != null) {
-                                    val elapsed = android.os.SystemClock.elapsedRealtime() - recordingStartedAt - recordingPausedMs
-                                    val expectedPosition = sessionStartPositionMs + elapsed.coerceAtLeast(0)
-                                    val drift = kotlin.math.abs(player.currentPosition - expectedPosition)
+                                    // Stop music together with the vocal take.
+                                    // Small player clock drift or the backing reaching its end
+                                    // must not prevent a short/full recording from auto-mixing.
                                     if (player.currentMediaItem?.localConfiguration?.uri?.toString() != sessionSongUri ||
                                         player.playbackParameters.speed != 1f ||
-                                        player.playbackParameters.pitch != 1f || (player.isPlaying && drift > 3000L)
-                                    ) {
+                                        player.playbackParameters.pitch != 1f) {
                                         sessionMixCompatible = false
-                                        sessionMixWarning = "Posisi atau pemutaran musik berubah selama rekaman (selisih ${drift} ms)"
+                                        sessionMixWarning = "Sumber musik atau kecepatan berubah saat merekam"
                                     }
+                                    player.pause()
                                     lastRecording = saved
                                     recordingPrefs.edit()
                                         .putString("last_uri", saved.toString())
@@ -471,8 +471,8 @@ class MainActivity : ComponentActivity() {
                                 if (saved != null && sessionMixCompatible && backing != null &&
                                     (backing.scheme == "content" || backing.scheme == "file")) {
                                     val backingStart = sessionStartPositionMs
-                                    val selectedMusicGain = musicGain
-                                    val selectedVoiceGain = voiceGain
+                                    val selectedMusicGain = 0.85f
+                                    val selectedVoiceGain = 1f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
@@ -590,7 +590,7 @@ class MainActivity : ComponentActivity() {
                     }
                     if (!recording && lastRecording != null) {
                         Spacer(Modifier.height(12.dp))
-                        Text("🎚 Mixing musik + vokal (WAV)", color = Pink, fontWeight = FontWeight.Bold)
+                        Text("🎵 Hasil karaoke otomatis (musik + vokal)", color = Pink, fontWeight = FontWeight.Bold)
                         TextButton(onClick = { showMixOptions = !showMixOptions }) {
                             Text(if (showMixOptions) "▴ Tutup pengaturan mixing" else "⚙ Atur volume & sinkronisasi")
                         }
