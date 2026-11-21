@@ -65,11 +65,16 @@ class MainActivity : ComponentActivity() {
             val library = remember { SongLibrary(this) }
             val recorder = remember { VoiceRecorder(this) }
             var recording by remember { mutableStateOf(false) }
+            var recordingPaused by remember { mutableStateOf(false) }
+            var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
+            var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
             var recordingSeconds by remember { mutableLongStateOf(0L) }
             LaunchedEffect(recording) {
                 while (recording) {
-                    recordingSeconds = ((android.os.SystemClock.elapsedRealtime() - recordingStartedAt) / 1000).coerceAtLeast(0)
+                    if (!recordingPaused) {
+                        recordingSeconds = ((android.os.SystemClock.elapsedRealtime() - recordingStartedAt - recordingPausedMs) / 1000).coerceAtLeast(0)
+                    }
                     delay(500)
                 }
             }
@@ -82,6 +87,8 @@ class MainActivity : ComponentActivity() {
                 try {
                     recorder.start()
                     recording = true
+                    recordingPaused = false
+                    recordingPausedMs = 0L
                     recordingStartedAt = android.os.SystemClock.elapsedRealtime()
                     recordingSeconds = 0
                     recordingStatus = "Merekam mikrofon…"
@@ -250,6 +257,7 @@ class MainActivity : ComponentActivity() {
                             try {
                                 val saved = recorder.stop()
                                 recording = false
+                                recordingPaused = false
                                 if (saved != null) {
                                     lastRecording = saved
                                     recordingPrefs.edit().putString("last_uri", saved.toString()).apply()
@@ -257,6 +265,7 @@ class MainActivity : ComponentActivity() {
                                 recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
                             } catch (e: Exception) {
                                 recording = false
+                                recordingPaused = false
                                 recordingStatus = "Gagal menyimpan rekaman: " + (e.message ?: "kesalahan audio")
                             }
                         } else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -265,7 +274,28 @@ class MainActivity : ComponentActivity() {
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (recording) "⏹ Hentikan rekaman suara" else "🎙 Rekam suara mikrofon")
                     }
-                    if (recording) Text("● REC  " + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
+                    if (recording) {
+                        Text((if (recordingPaused) "⏸ DIJEDA  " else "● REC  ") + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = {
+                            try {
+                                if (recordingPaused) {
+                                    recorder.resume()
+                                    recordingPausedMs += android.os.SystemClock.elapsedRealtime() - recordingPauseStartedAt
+                                    recordingPaused = false
+                                    recordingStatus = "Rekaman dilanjutkan"
+                                } else {
+                                    recorder.pause()
+                                    recordingPauseStartedAt = android.os.SystemClock.elapsedRealtime()
+                                    recordingPaused = true
+                                    recordingStatus = "Rekaman dijeda"
+                                }
+                            } catch (e: Exception) {
+                                recordingStatus = "Gagal mengubah jeda: " + (e.message ?: "kesalahan perekam")
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (recordingPaused) "▶ Lanjutkan rekaman" else "⏸ Jeda rekaman")
+                        }
+                    }
                     if (!recording && lastRecording != null) {
                         OutlinedButton(onClick = {
                             try {
