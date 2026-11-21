@@ -48,3 +48,6 @@ Tautan video YouTube standar, youtu.be, Shorts, dan live kini membuka pemutar vi
 
 ### Video MP4 offline
 Mode Offline menerima audio dan video MP4 dari pemilih dokumen Android. Video lokal ditampilkan melalui Media3 PlayerView dengan kontrol pemutaran. Dukungan codec bergantung pada perangkat; mixing tetap mengekspor audio WAV saja, bukan video MP4. Pengujian pada perangkat fisik masih diperlukan.
+
+### Video karaoke MP4 offline
+Mode Offline menerima MP3 dan video MP4 dari penyimpanan HP menggunakan pemilih dokumen Android. Video MP4 ditampilkan melalui Media3 PlayerView; dukungan codec tergantung perangkat. Saat beralih ke video YouTube, pemutaran lokal sebelumnya dihentikan. Rekaman/mixing saat ini hanya menghasilkan audio WAV, **belum** mengekspor video MP4. Fitur MP4 masih perlu pengujian build dan perangkat fisik.
