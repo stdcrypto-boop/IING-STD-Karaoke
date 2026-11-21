@@ -74,6 +74,14 @@ class MainActivity : ComponentActivity() {
             val recorder = remember { VoiceRecorder(this) }
             var recording by remember { mutableStateOf(false) }
             var recordingPaused by remember { mutableStateOf(false) }
+            var microphoneLevel by remember { mutableFloatStateOf(0f) }
+            LaunchedEffect(recording, recordingPaused) {
+                while (recording) {
+                    microphoneLevel = if (recordingPaused) 0f else recorder.peakLevel()
+                    delay(120)
+                }
+                microphoneLevel = 0f
+            }
             var externalMic by remember { mutableStateOf(false) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
@@ -367,6 +375,20 @@ class MainActivity : ComponentActivity() {
                         repeatOne = !repeatOne
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
+                    Text("Level mikrofon saat merekam", color = Pink)
+                    LinearProgressIndicator(
+                        progress = { microphoneLevel },
+                        modifier = Modifier.fillMaxWidth().height(12.dp),
+                        color = if (microphoneLevel > 0.9f) Color.Red else Pink,
+                        trackColor = Color(0xFF392A47)
+                    )
+                    Text(
+                        if (recordingPaused) "Rekaman dijeda"
+                        else if (recording) "Indikator input mikrofon • ${(microphoneLevel * 100).toInt()}%"
+                        else "Mulai merekam untuk melihat level mikrofon",
+                        color = Color.LightGray, fontSize = 12.sp
+                    )
+                    Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Sumber mikrofon", color = Pink)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (externalMic) "Headset / USB / Bluetooth" else "Mikrofon HP", color = Color.LightGray,
