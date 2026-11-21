@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
             var mixStatus by remember { mutableStateOf("") }
             var musicGain by remember { mutableFloatStateOf(0.65f) }
             var voiceGain by remember { mutableFloatStateOf(1f) }
+            var syncAdjustmentMs by remember { mutableFloatStateOf(0f) }
             var mixedFile by remember { mutableStateOf<File?>(null) }
             var lastRecording by remember {
                 mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
@@ -394,6 +395,18 @@ class MainActivity : ComponentActivity() {
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Vokal: ${(voiceGain * 100).toInt()}%", color = Color.LightGray)
                         Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..1f)
+                        Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms", color = Color.LightGray)
+                        Slider(
+                            value = syncAdjustmentMs,
+                            onValueChange = { syncAdjustmentMs = it },
+                            valueRange = -500f..500f,
+                            steps = 19
+                        )
+                        Text(
+                            "Geser ke kanan jika musik terdengar terlalu cepat dibanding vokal. Uji dengan rekaman pendek.",
+                            color = Color.LightGray,
+                            fontSize = 12.sp
+                        )
                         val source = recordingPrefs.getString("last_backing_uri", null)
                         val mixCompatible = recordingPrefs.getBoolean("last_mix_compatible", false)
                         val supportedSource = source?.let {
@@ -420,7 +433,8 @@ class MainActivity : ComponentActivity() {
                                                     this@MainActivity,
                                                     Uri.parse(backing),
                                                     voice,
-                                                    recordingPrefs.getLong("last_backing_start_ms", 0L),
+                                                    (recordingPrefs.getLong("last_backing_start_ms", 0L) +
+                                                        syncAdjustmentMs.toLong()).coerceAtLeast(0L),
                                                     destination,
                                                     musicGain,
                                                     voiceGain
