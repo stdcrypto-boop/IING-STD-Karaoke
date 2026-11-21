@@ -1,6 +1,10 @@
 package com.iingstd.karaoke
 
 import android.net.Uri
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
@@ -143,6 +147,7 @@ class MainActivity : ComponentActivity() {
             var currentSong by remember { mutableStateOf<SavedSong?>(null) }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
+            var youtubeVideoId by remember { mutableStateOf<String?>(null) }
             var track by remember { mutableStateOf("Belum ada lagu") }
             var playing by remember { mutableStateOf(false) }
             var position by remember { mutableLongStateOf(0L) }
@@ -157,6 +162,7 @@ class MainActivity : ComponentActivity() {
             var error by remember { mutableStateOf("") }
             fun playSong(song: SavedSong) {
                 try {
+                    youtubeVideoId = null
                     player.setMediaItem(MediaItem.fromUri(song.uri))
                     player.prepare()
                     player.play()
@@ -233,7 +239,7 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         OutlinedTextField(value = url, onValueChange = { url = it },
-                            label = { Text("URL audio langsung (bukan link YouTube)") },
+                            label = { Text("Tempel link YouTube atau audio HTTPS") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
                             val link = url.trim()
@@ -244,13 +250,51 @@ class MainActivity : ComponentActivity() {
                             } else if (host == "youtu.be" || host == "youtube.com" ||
                                 host == "www.youtube.com" || host == "m.youtube.com" ||
                                 host == "music.youtube.com") {
-                                error = "Link YouTube belum didukung. Gunakan mode Offline untuk MP3 di HP, atau URL langsung ke file audio (misalnya .mp3)."
+                                val id = if (host == "youtu.be") parsed.pathSegments.firstOrNull()
+                                    else if (parsed.pathSegments.firstOrNull() == "shorts" ||
+                                        parsed.pathSegments.firstOrNull() == "embed" ||
+                                        parsed.pathSegments.firstOrNull() == "live") parsed.pathSegments.getOrNull(1)
+                                    else parsed.getQueryParameter("v")
+                                if (id != null && id.matches(Regex("[A-Za-z0-9_-]{11}"))) {
+                                    player.pause()
+                                    youtubeVideoId = id
+                                    track = "YouTube • " + id
+                                    error = ""
+                                } else {
+                                    error = "Link YouTube tidak valid. Salin link video dari tombol Bagikan."
+                                }
                             } else {
                                 try {
                                     playSong(SavedSong(parsed.lastPathSegment ?: "Streaming online", link, true, System.currentTimeMillis()))
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
+                    }
+                    youtubeVideoId?.let { videoId ->
+                        Text("▶ Video YouTube", color = Pink)
+                        Text("Putar video di bawah. Audio YouTube tidak dapat diekspor atau dicampur dengan rekaman dalam versi ini.",
+                            color = Color.LightGray, fontSize = 12.sp)
+                        key(videoId) {
+                            AndroidView(
+                                factory = { context ->
+                                    WebView(context).apply {
+                                        settings.javaScriptEnabled = true
+                                        settings.domStorageEnabled = true
+                                        webChromeClient = WebChromeClient()
+                                        webViewClient = WebViewClient()
+                                        val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#000"><iframe width="100%" height="100%" src="https://www.youtube-nocookie.com/embed/$videoId?playsinline=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></body></html>"""
+                                        loadDataWithBaseURL("https://www.youtube.com/", html, "text/html", "UTF-8", null)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(230.dp)
+                            )
+                        }
+                        TextButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId"))
+                            runCatching { startActivity(intent) }.onFailure {
+                                error = "Tidak dapat membuka YouTube: " + (it.message ?: "aplikasi tidak tersedia")
+                            }
+                        }) { Text("Buka di aplikasi YouTube jika video tidak bisa diputar") }
                     }
                     Spacer(Modifier.height(12.dp))
                     currentSong?.let { song ->
