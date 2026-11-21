@@ -769,7 +769,7 @@ class MainActivity : ComponentActivity() {
                         }) { Text("Hapus semua riwayat") }
                     }
                     if (error.isNotBlank()) Text(error, color = Color(0xFFFF9E9E))
-                    if (true) {
+                    run {
                         val songs = if (selectedList == "Disimpan") favorites else history
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().height(260.dp)
