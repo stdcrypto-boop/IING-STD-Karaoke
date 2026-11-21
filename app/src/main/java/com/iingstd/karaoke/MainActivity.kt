@@ -179,7 +179,7 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
-                    recorder.start(preferExternalMic = externalMic)
+                    recorder.start()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
                     mixStatus = ""
@@ -424,17 +424,8 @@ class MainActivity : ComponentActivity() {
                     }
                     if (showMicOptions) {
                     Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
-                    Text("Sumber mikrofon", color = Pink)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (externalMic) "Coba mikrofon headset / eksternal" else "Gunakan mikrofon HP", color = Color.LightGray,
-                            modifier = Modifier.weight(1f))
-                        Switch(checked = externalMic, onCheckedChange = { externalMic = it },
-                            enabled = !recording)
-                    }
-                    Text("Sakelar ini hanya memilih sumber input saat mulai rekaman, BUKAN tombol hidup/mati mikrofon atau suara balik ke headset. " +
-                        "Untuk speaker aktif atau Bluetooth: pilih mikrofon HP jika tidak ada mikrofon eksternal. " +
-                        "Musik lokal digabung dari file asli, bukan direkam ulang dari speaker. " +
-                        "Mikrofon Bluetooth mungkin tidak mendukung perekaman bersamaan dengan output musik.",
+                    Text("Mikrofon dipilih otomatis: USB/soundcard → headset kabel → mikrofon HP.", color = Pink)
+                    Text("Sambungkan Bonkyo F999 Max melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
                         color = Color.LightGray, fontSize = 12.sp)
                     }
                     Button(onClick = {
