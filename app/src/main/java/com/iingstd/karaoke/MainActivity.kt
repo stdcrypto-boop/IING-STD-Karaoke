@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
             var position by remember { mutableLongStateOf(0L) }
             var duration by remember { mutableLongStateOf(0L) }
             var speed by remember { mutableFloatStateOf(1f) }
+            var volume by remember { mutableFloatStateOf(1f) }
+            var repeatOne by remember { mutableStateOf(false) }
             var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
             var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
             val lyricListState = rememberLazyListState()
@@ -173,6 +175,18 @@ class MainActivity : ComponentActivity() {
                         speed = it
                         player.setPlaybackSpeed(it)
                     }, valueRange = 0.5f..1.5f)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Volume", color = Color.LightGray)
+                        Slider(value = volume, onValueChange = {
+                            volume = it
+                            player.volume = it
+                        }, modifier = Modifier.weight(1f))
+                        Text("${(volume * 100).toInt()}%", color = Color.LightGray)
+                    }
+                    TextButton(onClick = {
+                        repeatOne = !repeatOne
+                        player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                    }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
