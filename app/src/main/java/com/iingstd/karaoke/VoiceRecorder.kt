@@ -95,6 +95,22 @@ class VoiceRecorder(private val context: Context) {
                     }
                 }
                 r.start()
+                // setPreferredDevice is a request, not proof that Android routed the mic.
+                // Fail explicitly when Android reports a different active input.
+                if (Build.VERSION.SDK_INT >= 28 && preferExternalMic) {
+                    val routed = r.routedDevice
+                    if (routed != null) {
+                        val externalTypes = setOf(
+                            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                            AudioDeviceInfo.TYPE_USB_DEVICE,
+                            AudioDeviceInfo.TYPE_USB_HEADSET,
+                            AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                        )
+                        check(routed.type in externalTypes) {
+                            "Android memakai mikrofon HP, bukan mikrofon eksternal. Coba sambungkan ulang headset."
+                        }
+                    }
+                }
             }
             return uri
         } catch (e: Exception) {
