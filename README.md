@@ -37,3 +37,6 @@ PCM disk-backed mixer now caches decoded stereo frames during sample reads to re
 Mixer validates WAV output size, backing offsets and duration arithmetic before export to avoid overflow on long or malformed audio files. These guards do not replace device testing.
 
 The disk-backed PCM mixer now uses 64 KiB buffered reads for both audio tracks to avoid repeated per-sample disk seeks. The buffer is bounded; benchmark and Android-device playback validation are still pending.
+
+### Stabilitas ekspor
+File PCM sementara dibersihkan meskipun pembuatan file kedua gagal. Buffer output decoder dilepaskan melalui `finally` jika pemrosesan sampel gagal. Perubahan ini belum menggantikan pengujian build dan uji mixing pada perangkat fisik.
