@@ -1,6 +1,7 @@
 package com.iingstd.karaoke
 
 import android.net.Uri
+import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
@@ -276,6 +277,20 @@ class MainActivity : ComponentActivity() {
                                 error = "Tidak bisa memutar rekaman: " + (e.message ?: "file tidak tersedia")
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Dengarkan rekaman terakhir") }
+                    }
+                    if (!recording && lastRecording != null) {
+                        OutlinedButton(onClick = {
+                            try {
+                                val share = Intent(Intent.ACTION_SEND).apply {
+                                    type = "audio/mp4"
+                                    putExtra(Intent.EXTRA_STREAM, lastRecording)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                startActivity(Intent.createChooser(share, "Bagikan rekaman karaoke"))
+                            } catch (e: Exception) {
+                                recordingStatus = "Tidak dapat membagikan rekaman: " + (e.message ?: "kesalahan")
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("↗ Bagikan rekaman terakhir") }
                     }
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
