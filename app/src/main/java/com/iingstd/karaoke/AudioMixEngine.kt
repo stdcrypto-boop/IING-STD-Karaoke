@@ -118,27 +118,32 @@ object AudioMixEngine {
         }
     }
 
+    /**
+     * Cache a small aligned PCM window instead of seeking for each sample.
+     * A frame always contains both channels, so stereo reads remain consistent.
+     */
     private class PcmFrameReader(
         private val file: RandomAccessFile,
         private val channels: Int
     ) {
-        private var cachedFrame = -1L
-        private var left = 0
-        private var right = 0
+        private val frameBytes = channels * 2
+        private val buffer = ByteArray(64 * 1024)
+        private var windowStart = -1L
+        private var windowLength = 0
 
         fun sample(frame: Long, channel: Int): Int {
-            if (frame != cachedFrame) {
-                file.seek(frame * channels * 2L)
-                left = readSample()
-                right = if (channels == 2) readSample() else left
-                cachedFrame = frame
+            val bytePosition = frame * frameBytes + if (channels == 1) 0 else channel * 2
+            if (bytePosition < windowStart || bytePosition + 2 > windowStart + windowLength) {
+                // Frame-aligned windows prevent a 16-bit sample straddling reads.
+                val aligned = (bytePosition / frameBytes) * frameBytes
+                file.seek(aligned)
+                windowStart = aligned
+                windowLength = file.read(buffer)
+                check(windowLength >= frameBytes) { "PCM terpotong saat mixing" }
             }
-            return if (channel == 0) left else right
-        }
-
-        private fun readSample(): Int {
-            val lo = file.readUnsignedByte()
-            val hi = file.readUnsignedByte()
+            val index = (bytePosition - windowStart).toInt()
+            val lo = buffer[index].toInt() and 0xff
+            val hi = buffer[index + 1].toInt() and 0xff
             return ((hi shl 8) or lo).toShort().toInt()
         }
     }
@@ -225,7 +230,7 @@ object AudioMixEngine {
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
                             check(written + info.size <= MAX_PCM_BYTES_PER_TRACK) {
-                                "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
+                                "Audio terlalu panjang untuk mixing versi ini (maksimum 512 MB PCM per track)"
                             }
                             val chunk = ByteArray(info.size)
                             buffer.get(chunk)
