@@ -298,6 +298,35 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
+                    Text("🎶 Katalog penyanyi dangdut & Minang", color = Pink, fontWeight = FontWeight.Bold)
+                    var artistSearch by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = artistSearch, onValueChange = { artistSearch = it },
+                        label = { Text("Cari penyanyi") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    val dangdutArtists = listOf(
+                        "Rhoma Irama", "Mansyur S", "Meggy Z", "Elvy Sukaesih",
+                        "Rita Sugiarto", "M. Arifin", "Ipank", "Ikke Nurjanah",
+                        "Caca Handika", "Hamdan ATT", "Muchsin Alatas",
+                        "Inul Daratista", "Evie Tamala", "Iis Dahlia",
+                        "Nassar", "Ayu Ting Ting", "Via Vallen", "Nella Kharisma",
+                        "Didi Kempot", "Jhonny Iskandar", "Ona Sutra",
+                        "Zacky Zimah", "Siti Badriah", "Lesti Kejora"
+                    )
+                    val matchedArtists = dangdutArtists.filter {
+                        it.contains(artistSearch.trim(), ignoreCase = true)
+                    }
+                    Text("Pilih penyanyi untuk mencari karaoke online. Musik artis belum dibundel ke APK.",
+                        color = Color.LightGray, fontSize = 12.sp)
+                    Column(Modifier.fillMaxWidth().heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                        matchedArtists.forEach { artist ->
+                            TextButton(onClick = {
+                                onlineSearch = artist
+                                mode = "Online"
+                            }) { Text("🎤 " + artist) }
+                        }
+                    }
                     if (mode == "Offline") {
                         Button(onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) }, modifier = Modifier.fillMaxWidth()) {
                             Text("📁 Pilih MP3 atau video MP4 dari HP")
