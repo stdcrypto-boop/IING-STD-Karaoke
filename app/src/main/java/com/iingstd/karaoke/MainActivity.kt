@@ -116,6 +116,10 @@ class MainActivity : ComponentActivity() {
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
                     recorder.start()
+                    // The previous mix belongs to an older vocal take.
+                    mixedFile = null
+                    mixStatus = ""
+                    recordingPrefs.edit().remove("last_mix_path").apply()
                     recording = true
                     recordingPaused = false
                     recordingPausedMs = 0L
@@ -420,7 +424,7 @@ class MainActivity : ComponentActivity() {
                             scheme == "content" || scheme == "file"
                         } == true
                         Button(
-                            enabled = !mixing && supportedSource && mixCompatible,
+                            enabled = !recording && !mixing && supportedSource && mixCompatible,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
                                 val backing = source ?: return@Button
