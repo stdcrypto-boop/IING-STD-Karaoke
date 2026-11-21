@@ -5,7 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
-import java.io.ByteArrayOutputStream
+import java.io.RandomAccessFile
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -17,9 +17,8 @@ import java.nio.ByteOrder
  * Output is stereo PCM WAV. Call on a background thread, never the UI thread.
  */
 object AudioMixEngine {
-    data class Pcm(val samples: ShortArray, val sampleRate: Int, val channels: Int)
-    // Both tracks are decoded in memory; cap each to avoid exhausting device RAM.
-    private const val MAX_PCM_BYTES_PER_TRACK = 32 * 1024 * 1024
+    data class Pcm(val file: File, val sampleRate: Int, val channels: Int, val frames: Long)
+    private const val MAX_PCM_BYTES_PER_TRACK = 512L * 1024 * 1024
 
     fun mixToWav(
         context: Context,
@@ -31,87 +30,90 @@ object AudioMixEngine {
         voiceGain: Float = 1f
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..1f)
-        val backing = decode(context, backingUri)
-        val voice = decode(context, voiceUri)
-        // Keep the vocal sample rate as output; resample backing with linear interpolation.
-        val rate = voice.sampleRate
-        val safeStartMs = backingStartMs.coerceAtLeast(0)
-        val offsetFramesLong = (safeStartMs / 1000) * backing.sampleRate.toLong() +
-            (safeStartMs % 1000) * backing.sampleRate / 1000
-        require(offsetFramesLong <= Int.MAX_VALUE) { "Posisi musik terlalu besar" }
-        val offsetFrames = offsetFramesLong.toInt()
-        val voiceFrames = voice.samples.size / voice.channels
-        val backingFrames = backing.samples.size / backing.channels
-        require(offsetFrames < backingFrames) { "Posisi awal melewati durasi musik" }
-        val requiredBackingFrames = (voiceFrames.toLong() * backing.sampleRate + rate - 1) / rate
-        require(requiredBackingFrames <= backingFrames.toLong() - offsetFrames) {
-            "Musik pengiring berakhir sebelum rekaman vokal selesai"
-        }
-        val frames = voiceFrames
-        require(frames > 0) { "Tidak ada audio yang dapat digabungkan" }
-        require(frames.toLong() * 4 <= Int.MAX_VALUE - 44) { "Rekaman terlalu panjang untuk WAV" }
-        destination.parentFile?.mkdirs()
-        FileOutputStream(destination).use { output ->
-            val bytes = frames * 4
-            val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
-            header.put("RIFF".toByteArray(Charsets.US_ASCII))
-            header.putInt(36 + bytes)
-            header.put("WAVEfmt ".toByteArray(Charsets.US_ASCII))
-            header.putInt(16)
-            header.putShort(1)
-            header.putShort(2)
-            header.putInt(rate)
-            header.putInt(rate * 4)
-            header.putShort(4)
-            header.putShort(16)
-            header.put("data".toByteArray(Charsets.US_ASCII))
-            header.putInt(bytes)
-            output.write(header.array())
-            val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
-            val combinedGain = backingGain + voiceGain
-            val scale = if (combinedGain > 1f) 1f / combinedGain else 1f
-            val fadeFrames = (rate / 100).coerceAtLeast(1) // 10 ms
-            for (frame in 0 until frames) {
-                val fadeIn = (frame.toFloat() / fadeFrames).coerceIn(0f, 1f)
-                val fadeOut = ((frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
-                val edgeGain = minOf(fadeIn, fadeOut)
-                val backingFrame = offsetFrames.toDouble() +
-                    frame.toDouble() * backing.sampleRate / rate
-                for (channel in 0..1) {
-                    val music = interpolatedSample(backing, backingFrame, channel)
-                    val vocal = sample(voice, frame, channel)
-                    // Avoid hard clipping when both tracks peak at the same time.
-                    // Scale both gains proportionally if their combined gain exceeds unity.
-                    val mixed = ((music * backingGain + vocal * voiceGain) * scale * edgeGain)
-                        .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                    if (block.remaining() < 2) {
-                        output.write(block.array(), 0, block.position())
-                        block.clear()
+        val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
+        val voiceTemp = File.createTempFile("voice-", ".pcm", context.cacheDir)
+        try {
+            val backing = decode(context, backingUri, backingTemp)
+            val voice = decode(context, voiceUri, voiceTemp)
+            val rate = voice.sampleRate
+            val offset = backingStartMs.coerceAtLeast(0) * backing.sampleRate / 1000L
+            require(offset < backing.frames) { "Posisi awal melewati durasi musik" }
+            val needed = (voice.frames * backing.sampleRate + rate - 1) / rate
+            require(needed <= backing.frames - offset) {
+                "Musik pengiring berakhir sebelum rekaman vokal selesai"
+            }
+            require(voice.frames > 0 && voice.frames * 4 <= Int.MAX_VALUE - 44) {
+                "Rekaman terlalu panjang untuk WAV"
+            }
+            destination.parentFile?.mkdirs()
+            RandomAccessFile(backing.file, "r").use { music ->
+                RandomAccessFile(voice.file, "r").use { vocal ->
+                    FileOutputStream(destination).use { output ->
+                        val bytes = (voice.frames * 4).toInt()
+                        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+                        header.put("RIFF".toByteArray(Charsets.US_ASCII))
+                        header.putInt(36 + bytes)
+                        header.put("WAVEfmt ".toByteArray(Charsets.US_ASCII))
+                        header.putInt(16)
+                        header.putShort(1)
+                        header.putShort(2)
+                        header.putInt(rate)
+                        header.putInt(rate * 4)
+                        header.putShort(4)
+                        header.putShort(16)
+                        header.put("data".toByteArray(Charsets.US_ASCII))
+                        header.putInt(bytes)
+                        output.write(header.array())
+                        val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
+                        val sum = backingGain + voiceGain
+                        val scale = if (sum > 1f) 1f / sum else 1f
+                        val fadeFrames = (rate / 100).coerceAtLeast(1)
+                        for (frame in 0 until voice.frames) {
+                            val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
+                            val first = pos.toLong().coerceAtMost(backing.frames - 1)
+                            val second = (first + 1).coerceAtMost(backing.frames - 1)
+                            val fraction = (pos - first).coerceIn(0.0, 1.0)
+                            val fade = minOf(
+                                (frame.toFloat() / fadeFrames).coerceIn(0f, 1f),
+                                ((voice.frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
+                            )
+                            for (channel in 0..1) {
+                                val a = sample(music, first, backing.channels, channel)
+                                val b = sample(music, second, backing.channels, channel)
+                                val musicSample = a + (b - a) * fraction
+                                val voiceSample = sample(vocal, frame, voice.channels, channel)
+                                val mixed = ((musicSample * backingGain + voiceSample * voiceGain) *
+                                    scale * fade).toInt().coerceIn(-32768, 32767)
+                                if (block.remaining() < 2) {
+                                    output.write(block.array(), 0, block.position())
+                                    block.clear()
+                                }
+                                block.putShort(mixed.toShort())
+                            }
+                        }
+                        if (block.position() > 0) output.write(block.array(), 0, block.position())
                     }
-                    block.putShort(mixed.toShort())
                 }
             }
-            if (block.position() > 0) output.write(block.array(), 0, block.position())
+            return destination
+        } catch (e: Exception) {
+            destination.delete()
+            throw e
+        } finally {
+            backingTemp.delete()
+            voiceTemp.delete()
         }
-        return destination
     }
 
-    private fun sample(pcm: Pcm, frame: Int, channel: Int): Int {
-        val index = frame * pcm.channels + if (pcm.channels == 1) 0 else channel
-        return pcm.samples[index].toInt()
+    private fun sample(file: RandomAccessFile, frame: Long, channels: Int, channel: Int): Int {
+        val index = frame * channels + if (channels == 1) 0 else channel
+        file.seek(index * 2)
+        val lo = file.readUnsignedByte()
+        val hi = file.readUnsignedByte()
+        return ((hi shl 8) or lo).toShort().toInt()
     }
 
-    private fun interpolatedSample(pcm: Pcm, position: Double, channel: Int): Int {
-        val frameCount = pcm.samples.size / pcm.channels
-        val first = position.toInt().coerceIn(0, frameCount - 1)
-        val second = (first + 1).coerceAtMost(frameCount - 1)
-        val fraction = (position - first).coerceIn(0.0, 1.0)
-        val a = sample(pcm, first, channel)
-        val b = sample(pcm, second, channel)
-        return (a + (b - a) * fraction).toInt()
-    }
-
-    private fun decode(context: Context, uri: Uri): Pcm {
+    private fun decode(context: Context, uri: Uri, target: File): Pcm {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         try {
@@ -136,7 +138,7 @@ object AudioMixEngine {
                         ((durationUs % 1_000_000L) * sourceRate / 1_000_000L) *
                         sourceChannels * 2L
                     require(estimatedBytes <= MAX_PCM_BYTES_PER_TRACK) {
-                        "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
+                        "Audio terlalu panjang untuk mixing versi ini (maksimum 512 MB PCM per track)"
                     }
                 }
             }
@@ -144,7 +146,8 @@ object AudioMixEngine {
             codec = decoder
             decoder.configure(format, null, null, 0)
             decoder.start()
-            val out = ByteArrayOutputStream()
+            val out = FileOutputStream(target)
+            var written = 0L
             val info = MediaCodec.BufferInfo()
             var inputDone = false
             var outputDone = false
@@ -189,12 +192,13 @@ object AudioMixEngine {
                         if (info.size > 0) {
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
-                            check(out.size().toLong() + info.size <= MAX_PCM_BYTES_PER_TRACK) {
+                            check(written + info.size <= MAX_PCM_BYTES_PER_TRACK) {
                                 "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
                             }
                             val chunk = ByteArray(info.size)
                             buffer.get(chunk)
                             out.write(chunk)
+                            written += chunk.size
                         }
                         outputDone = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
                         decoder.releaseOutputBuffer(index, false)
@@ -202,12 +206,9 @@ object AudioMixEngine {
                 }
             }
             require(channels in 1..2) { "Hanya audio mono atau stereo didukung" }
-            val bytes = out.toByteArray()
-            require(bytes.size % 2 == 0) { "PCM tidak lengkap" }
-            val pcm = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
-            val samples = ShortArray(pcm.remaining())
-            pcm.get(samples)
-            return Pcm(samples, rate, channels)
+            out.close()
+            require(written > 0 && written % (channels * 2L) == 0L) { "PCM tidak lengkap" }
+            return Pcm(target, rate, channels, written / (channels * 2L))
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
