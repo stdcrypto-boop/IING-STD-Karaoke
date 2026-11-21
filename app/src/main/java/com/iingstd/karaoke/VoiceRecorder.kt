@@ -71,11 +71,11 @@ class VoiceRecorder(private val context: Context) {
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
             run {
-                r.setAudioSource(MediaRecorder.AudioSource.MIC)
+                r.setAudioSource(if (Build.VERSION.SDK_INT >= 29) MediaRecorder.AudioSource.VOICE_PERFORMANCE else MediaRecorder.AudioSource.MIC)
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                r.setAudioEncodingBitRate(128000)
-                r.setAudioSamplingRate(44100)
+                r.setAudioEncodingBitRate(192000)
+                r.setAudioSamplingRate(48000)
                 if (fd != null) r.setOutputFile(fd.fileDescriptor)
                 else r.setOutputFile(legacyFile?.absolutePath ?: error("Missing output file"))
                 r.prepare()
