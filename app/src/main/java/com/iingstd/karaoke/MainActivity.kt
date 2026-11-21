@@ -800,6 +800,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+}
 private fun formatTime(ms: Long): String {
     val sec = ms / 1000
     return "%02d:%02d".format(sec / 60, sec % 60)
