@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -165,7 +167,7 @@ class MainActivity : ComponentActivity() {
             }
             MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Dark, surface = Color(0xFF21182D))) {
                 Column(
-                    Modifier.fillMaxSize().background(Dark).padding(20.dp),
+                    Modifier.fillMaxSize().background(Dark).verticalScroll(rememberScrollState()).padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text("🎤 IING STD KARAOKE", color = Pink, fontWeight = FontWeight.Bold, fontSize = 24.sp)
@@ -314,7 +316,7 @@ class MainActivity : ComponentActivity() {
                     if (selectedList != "Lirik") {
                         val songs = if (selectedList == "Disimpan") favorites else history
                         LazyColumn(
-                            modifier = Modifier.fillMaxWidth().weight(1f)
+                            modifier = Modifier.fillMaxWidth().height(260.dp)
                                 .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -339,7 +341,7 @@ class MainActivity : ComponentActivity() {
                         }
                     } else LazyColumn(
                         state = lyricListState,
-                        modifier = Modifier.fillMaxWidth().weight(1f)
+                        modifier = Modifier.fillMaxWidth().height(260.dp)
                             .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
