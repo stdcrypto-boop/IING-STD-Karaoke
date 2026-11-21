@@ -46,8 +46,10 @@ object AudioMixEngine {
                 "Rekaman terlalu panjang untuk WAV"
             }
             destination.parentFile?.mkdirs()
-            RandomAccessFile(backing.file, "r").use { music ->
-                RandomAccessFile(voice.file, "r").use { vocal ->
+            RandomAccessFile(backing.file, "r").use { musicFile ->
+                RandomAccessFile(voice.file, "r").use { vocalFile ->
+                    val music = PcmFrameReader(musicFile, backing.channels)
+                    val vocal = PcmFrameReader(vocalFile, voice.channels)
                     FileOutputStream(destination).use { output ->
                         val bytes = (voice.frames * 4).toInt()
                         val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
@@ -78,10 +80,10 @@ object AudioMixEngine {
                                 ((voice.frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
                             )
                             for (channel in 0..1) {
-                                val a = sample(music, first, backing.channels, channel)
-                                val b = sample(music, second, backing.channels, channel)
+                                val a = music.sample(first, channel)
+                                val b = music.sample(second, channel)
                                 val musicSample = a + (b - a) * fraction
-                                val voiceSample = sample(vocal, frame, voice.channels, channel)
+                                val voiceSample = vocal.sample(frame, channel)
                                 val mixed = ((musicSample * backingGain + voiceSample * voiceGain) *
                                     scale * fade).toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
@@ -105,12 +107,29 @@ object AudioMixEngine {
         }
     }
 
-    private fun sample(file: RandomAccessFile, frame: Long, channels: Int, channel: Int): Int {
-        val index = frame * channels + if (channels == 1) 0 else channel
-        file.seek(index * 2)
-        val lo = file.readUnsignedByte()
-        val hi = file.readUnsignedByte()
-        return ((hi shl 8) or lo).toShort().toInt()
+    private class PcmFrameReader(
+        private val file: RandomAccessFile,
+        private val channels: Int
+    ) {
+        private var cachedFrame = -1L
+        private var left = 0
+        private var right = 0
+
+        fun sample(frame: Long, channel: Int): Int {
+            if (frame != cachedFrame) {
+                file.seek(frame * channels * 2L)
+                left = readSample()
+                right = if (channels == 2) readSample() else left
+                cachedFrame = frame
+            }
+            return if (channel == 0) left else right
+        }
+
+        private fun readSample(): Int {
+            val lo = file.readUnsignedByte()
+            val hi = file.readUnsignedByte()
+            return ((hi shl 8) or lo).toShort().toInt()
+        }
     }
 
     private fun decode(context: Context, uri: Uri, target: File): Pcm {
