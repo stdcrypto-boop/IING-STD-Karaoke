@@ -38,6 +38,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -83,6 +86,12 @@ class MainActivity : ComponentActivity() {
             var sessionSongTitle by remember { mutableStateOf<String?>(null) }
             var sessionStartPositionMs by remember { mutableLongStateOf(0L) }
             val recordingPrefs = remember { getSharedPreferences("karaoke_recording", MODE_PRIVATE) }
+            val mixScope = rememberCoroutineScope()
+            var mixing by remember { mutableStateOf(false) }
+            var mixStatus by remember { mutableStateOf("") }
+            var musicGain by remember { mutableFloatStateOf(0.65f) }
+            var voiceGain by remember { mutableFloatStateOf(1f) }
+            var mixedFile by remember { mutableStateOf<File?>(null) }
             var lastRecording by remember {
                 mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
             }
@@ -355,6 +364,88 @@ class MainActivity : ComponentActivity() {
                                 fontSize = 12.sp
                             )
                         }
+                    }
+                    if (!recording && lastRecording != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("🎚 Mixing musik + vokal (WAV)", color = Pink, fontWeight = FontWeight.Bold)
+                        Text("Musik: ${(musicGain * 100).toInt()}%", color = Color.LightGray)
+                        Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
+                        Text("Vokal: ${(voiceGain * 100).toInt()}%", color = Color.LightGray)
+                        Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..1f)
+                        val source = recordingPrefs.getString("last_backing_uri", null)
+                        val supportedSource = source?.let {
+                            val scheme = Uri.parse(it).scheme
+                            scheme == "content" || scheme == "file"
+                        } == true
+                        Button(
+                            enabled = !mixing && supportedSource,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                val backing = source ?: return@Button
+                                val voice = lastRecording ?: return@Button
+                                mixing = true
+                                mixStatus = "Memproses audio di perangkat…"
+                                mixedFile = null
+                                mixScope.launch {
+                                    try {
+                                        val result = withContext(Dispatchers.IO) {
+                                            val folder = File(getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC), "IING STD Karaoke")
+                                            check(folder.exists() || folder.mkdirs()) { "Folder output tidak tersedia" }
+                                            val destination = File(folder, "IING-MIX-${System.currentTimeMillis()}.wav")
+                                            try {
+                                                AudioMixEngine.mixToWav(
+                                                    this@MainActivity,
+                                                    Uri.parse(backing),
+                                                    voice,
+                                                    recordingPrefs.getLong("last_backing_start_ms", 0L),
+                                                    destination,
+                                                    musicGain,
+                                                    voiceGain
+                                                )
+                                            } catch (e: Exception) {
+                                                destination.delete()
+                                                throw e
+                                            }
+                                        }
+                                        mixedFile = result
+                                        mixStatus = "Mix WAV tersimpan: ${result.name}"
+                                    } catch (e: Exception) {
+                                        mixStatus = "Mix gagal: ${e.message ?: "format audio tidak didukung"}"
+                                    } finally {
+                                        mixing = false
+                                    }
+                                }
+                            }
+                        ) { Text(if (mixing) "⏳ Sedang mixing…" else "🎶 Gabungkan musik + vokal") }
+                        if (!supportedSource) {
+                            Text("Mixing hanya mendukung lagu lokal yang dapat diakses, bukan streaming.", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                        mixedFile?.let { file ->
+                            OutlinedButton(onClick = {
+                                player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+                                player.prepare()
+                                player.play()
+                                track = "Hasil mixing"
+                                currentSong = null
+                            }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar hasil mixing") }
+                            OutlinedButton(onClick = {
+                                try {
+                                    val uri = FileProvider.getUriForFile(
+                                        this@MainActivity, "com.iingstd.karaoke.fileprovider", file
+                                    )
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "audio/wav"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        clipData = android.content.ClipData.newUri(contentResolver, "Hasil mixing", uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    startActivity(Intent.createChooser(intent, "Bagikan hasil mixing"))
+                                } catch (e: Exception) {
+                                    mixStatus = "Gagal membagikan: ${e.message ?: "kesalahan"}"
+                                }
+                            }, modifier = Modifier.fillMaxWidth()) { Text("↗ Bagikan hasil mixing") }
+                        }
+                        if (mixStatus.isNotBlank()) Text(mixStatus, color = Color.LightGray)
                     }
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
