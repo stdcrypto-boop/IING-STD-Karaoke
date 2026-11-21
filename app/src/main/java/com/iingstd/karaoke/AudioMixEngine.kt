@@ -48,9 +48,10 @@ object AudioMixEngine {
             val needed = AudioTiming.requiredBackingFrames(
                 voice.frames, rate, backing.sampleRate
             )
-            require(needed <= backing.frames - offset) {
-                "Musik pengiring berakhir sebelum rekaman vokal selesai"
-            }
+            // A take may end early or run slightly past the backing track.
+            // In the latter case, keep the vocal and pad the music with silence.
+            // Do not reject a valid short/full take because of decoder duration rounding.
+            require(needed > 0) { "Durasi rekaman tidak valid" }
             destination.parentFile?.mkdirs()
             RandomAccessFile(backing.file, "r").use { musicFile ->
                 RandomAccessFile(voice.file, "r").use { vocalFile ->
@@ -78,7 +79,8 @@ object AudioMixEngine {
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
-                            val first = pos.toLong().coerceAtMost(backing.frames - 1)
+                            val withinMusic = pos < backing.frames.toDouble()
+                            val first = pos.toLong().coerceIn(0L, backing.frames - 1)
                             val second = (first + 1).coerceAtMost(backing.frames - 1)
                             val fraction = (pos - first).coerceIn(0.0, 1.0)
                             val fade = minOf(
@@ -86,9 +88,11 @@ object AudioMixEngine {
                                 ((voice.frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
                             )
                             for (channel in 0..1) {
-                                val a = music.sample(first, channel)
-                                val b = music.sample(second, channel)
-                                val musicSample = a + (b - a) * fraction
+                                val musicSample = if (withinMusic) {
+                                    val a = music.sample(first, channel)
+                                    val b = music.sample(second, channel)
+                                    a + (b - a) * fraction
+                                } else 0.0
                                 val voiceSample = vocal.sample(frame, channel)
                                 val mixed = ((musicSample * backingGain + voiceSample * voiceGain) *
                                     scale * fade).toInt().coerceIn(-32768, 32767)
