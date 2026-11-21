@@ -79,12 +79,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
             var recordingStatus by remember { mutableStateOf("") }
+            var sessionSongUri by remember { mutableStateOf<String?>(null) }
+            var sessionSongTitle by remember { mutableStateOf<String?>(null) }
+            var sessionStartPositionMs by remember { mutableLongStateOf(0L) }
             val recordingPrefs = remember { getSharedPreferences("karaoke_recording", MODE_PRIVATE) }
             var lastRecording by remember {
                 mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
             }
             fun beginRecording() {
                 try {
+                    sessionSongUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
+                    sessionSongTitle = player.mediaMetadata.title?.toString()
+                    sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
                     recorder.start()
                     recording = true
                     recordingPaused = false
@@ -260,7 +266,12 @@ class MainActivity : ComponentActivity() {
                                 recordingPaused = false
                                 if (saved != null) {
                                     lastRecording = saved
-                                    recordingPrefs.edit().putString("last_uri", saved.toString()).apply()
+                                    recordingPrefs.edit()
+                                        .putString("last_uri", saved.toString())
+                                        .putString("last_backing_uri", sessionSongUri)
+                                        .putString("last_backing_title", sessionSongTitle)
+                                        .putLong("last_backing_start_ms", sessionStartPositionMs)
+                                        .apply()
                                 }
                                 recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
                             } catch (e: Exception) {
@@ -331,6 +342,19 @@ class MainActivity : ComponentActivity() {
                                 recordingStatus = "Tidak dapat membagikan rekaman: " + (e.message ?: "kesalahan")
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("↗ Bagikan rekaman terakhir") }
+                    }
+                    if (!recording && lastRecording != null) {
+                        val backingUri = recordingPrefs.getString("last_backing_uri", null)
+                        if (!backingUri.isNullOrBlank()) {
+                            Text(
+                                "Referensi musik rekaman: " +
+                                    (recordingPrefs.getString("last_backing_title", null)
+                                        ?: Uri.parse(backingUri).lastPathSegment ?: "Lagu karaoke") +
+                                    " • mulai " + formatTime(recordingPrefs.getLong("last_backing_start_ms", 0L)),
+                                color = Color.LightGray,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
