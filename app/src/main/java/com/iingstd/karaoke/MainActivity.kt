@@ -51,7 +51,6 @@ import java.io.InputStreamReader
 
 private val Pink = Color(0xFFFF5EAD)
 private val Dark = Color(0xFF100C1B)
-private data class Lyric(val timeMs: Long, val text: String)
 
 class MainActivity : ComponentActivity() {
     private var incomingYouTubeLink by mutableStateOf<String?>(null)
@@ -184,9 +183,7 @@ class MainActivity : ComponentActivity() {
             var pitch by remember { mutableFloatStateOf(1f) }
             var volume by remember { mutableFloatStateOf(1f) }
             var repeatOne by remember { mutableStateOf(false) }
-            var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
-            var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
-            val lyricListState = rememberLazyListState()
+            var smoothVocal by remember { mutableStateOf(true) }
             var error by remember { mutableStateOf("") }
             var showPlaybackOptions by remember { mutableStateOf(false) }
             var showMicOptions by remember { mutableStateOf(false) }
@@ -253,7 +250,6 @@ class MainActivity : ComponentActivity() {
                     player.play()
                     player.playbackParameters = PlaybackParameters(speed, pitch)
                     currentSong = song
-                    lyrics = emptyList()
                     track = song.title
                     library.record(song.copy(playedAt = System.currentTimeMillis()))
                     history = library.history()
@@ -266,18 +262,6 @@ class MainActivity : ComponentActivity() {
                         try { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
                         playSong(SavedSong(uri.lastPathSegment?.substringAfterLast('/') ?: "Audio lokal", uri.toString(), false, System.currentTimeMillis()))
                     } catch (e: Exception) { error = e.message ?: "Tidak dapat membuka audio" }
-                }
-            }
-            val lyricPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                if (uri != null) {
-                    try {
-                        val content = contentResolver.openInputStream(uri)?.use {
-                            BufferedReader(InputStreamReader(it)).readText()
-                        }.orEmpty()
-                        lyrics = parseLrc(content)
-                        lyricOffsetMs = 0f
-                        error = if (lyrics.isEmpty()) "Tidak ada timestamp LRC yang valid" else ""
-                    } catch (e: Exception) { error = e.message ?: "Gagal membaca lirik" }
                 }
             }
             DisposableEffect(player) {
@@ -296,10 +280,6 @@ class MainActivity : ComponentActivity() {
                     playing = player.isPlaying
                     delay(250)
                 }
-            }
-            val activeLyricIndex = lyrics.indexOfLast { it.timeMs <= position + lyricOffsetMs.toLong() }
-            LaunchedEffect(activeLyricIndex, lyrics) {
-                if (activeLyricIndex >= 0) lyricListState.animateScrollToItem(activeLyricIndex)
             }
             MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Dark, surface = Color(0xFF21182D))) {
                 Column(
@@ -362,8 +342,7 @@ class MainActivity : ComponentActivity() {
                                     player.clearMediaItems()
                                     localVideoUri = null
                                     currentSong = null
-                                    lyrics = emptyList()
-                                    youtubeVideoId = id
+                                                    youtubeVideoId = id
                                     track = "YouTube • " + id
                                     error = ""
                                 } else {
@@ -529,8 +508,8 @@ class MainActivity : ComponentActivity() {
                                 if (saved != null && sessionMixCompatible && backing != null &&
                                     (backing.scheme == "content" || backing.scheme == "file")) {
                                     val backingStart = sessionStartPositionMs
-                                    val selectedMusicGain = 0.85f
-                                    val selectedVoiceGain = 1f
+                                    val selectedMusicGain = 0.75f
+                                    val selectedVoiceGain = 0.95f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
@@ -542,7 +521,7 @@ class MainActivity : ComponentActivity() {
                                                 try {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
-                                                        destination, selectedMusicGain, selectedVoiceGain
+                                                        destination, selectedMusicGain, selectedVoiceGain, smoothVocal
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
@@ -605,8 +584,7 @@ class MainActivity : ComponentActivity() {
                                 player.play()
                                 track = "Hasil rekaman suara"
                                 // Keep the selected backing track for the next recording.
-                                lyrics = emptyList()
-                                error = ""
+                                            error = ""
                             } catch (e: Exception) {
                                 error = "Tidak bisa memutar rekaman: " + (e.message ?: "file tidak tersedia")
                             }
@@ -767,18 +745,18 @@ class MainActivity : ComponentActivity() {
                         pitch = 1f
                         player.playbackParameters = PlaybackParameters(speed, 1f)
                     }) { Text("Reset nada") }
-                    Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
-                        modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
-                    Spacer(Modifier.height(12.dp))
-                    if (lyrics.isNotEmpty()) {
-                        Text("Sinkronisasi lirik: ${"%.1f".format(lyricOffsetMs / 1000f)} detik", color = Color.LightGray)
-                        Slider(value = lyricOffsetMs, onValueChange = { lyricOffsetMs = it },
-                            valueRange = -5000f..5000f, steps = 19)
-                        TextButton(onClick = { lyricOffsetMs = 0f }) { Text("Reset sinkronisasi") }
+                    Text("🎚 Kualitas vokal hasil rekaman", color = Pink, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (smoothVocal) "Vokal halus (disarankan)" else "Vokal natural",
+                            color = Color.LightGray, modifier = Modifier.weight(1f))
+                        Switch(checked = smoothVocal, onCheckedChange = { smoothVocal = it },
+                            enabled = !recording && !mixing)
                     }
-                    var selectedList by remember { mutableStateOf("Lirik") }
+                    Text("Preset diterapkan saat hasil musik + vokal digabung otomatis. Musik dibersihkan dari getaran sangat rendah tanpa menghilangkan bass.",
+                        color = Color.LightGray, fontSize = 12.sp)
+                    var selectedList by remember { mutableStateOf("Disimpan") }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("Lirik", "Disimpan", "Riwayat").forEach { tab ->
+                        listOf("Disimpan", "Riwayat").forEach { tab ->
                             TextButton(onClick = { selectedList = tab }) {
                                 Text(tab, color = if (selectedList == tab) Pink else Color.LightGray)
                             }
@@ -791,8 +769,7 @@ class MainActivity : ComponentActivity() {
                         }) { Text("Hapus semua riwayat") }
                     }
                     if (error.isNotBlank()) Text(error, color = Color(0xFFFF9E9E))
-                    val current = activeLyricIndex
-                    if (selectedList != "Lirik") {
+                    if (true) {
                         val songs = if (selectedList == "Disimpan") favorites else history
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().height(260.dp)
@@ -818,25 +795,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    } else LazyColumn(
-                        state = lyricListState,
-                        modifier = Modifier.fillMaxWidth().height(260.dp)
-                            .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (lyrics.isEmpty()) {
-                            item { Text("Lirik akan tampil di sini 🎶\nPilih file .LRC bertimestamp.", color = Color.LightGray, textAlign = TextAlign.Center) }
-                        } else {
-                            items(lyrics.size) { index ->
-                                Text(lyrics[index].text.ifBlank { "♪" },
-                                    color = if (index == current) Pink else Color.LightGray,
-                                    fontWeight = if (index == current) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = if (index == current) 21.sp else 16.sp,
-                                    textAlign = TextAlign.Center)
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -845,17 +803,4 @@ class MainActivity : ComponentActivity() {
 private fun formatTime(ms: Long): String {
     val sec = ms / 1000
     return "%02d:%02d".format(sec / 60, sec % 60)
-}
-private fun parseLrc(input: String): List<Lyric> {
-    val regex = Regex("""\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]""")
-    return input.lines().flatMap { line ->
-        val matches = regex.findAll(line).toList()
-        val text = line.replace(regex, "").trim()
-        matches.map { m ->
-            val minutes = m.groupValues[1].toLong()
-            val seconds = m.groupValues[2].toLong()
-            val frac = m.groupValues[3].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
-            Lyric((minutes * 60 + seconds) * 1000 + frac, text)
-        }
-    }.sortedBy { it.timeMs }
 }
