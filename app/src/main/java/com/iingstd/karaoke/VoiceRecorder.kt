@@ -28,6 +28,15 @@ class VoiceRecorder(private val context: Context) {
     private var paused = false
     val isRecording: Boolean get() = recorder != null
     val isPaused: Boolean get() = paused
+    /** Read-only microphone peak level (0..1). Does not play mic audio to speakers. */
+    fun peakLevel(): Float {
+        val active = recorder ?: return 0f
+        if (paused) return 0f
+        return runCatching {
+            (active.maxAmplitude.coerceIn(0, 32767) / 32767f).coerceIn(0f, 1f)
+        }.getOrDefault(0f)
+    }
+
 
     fun pause() {
         check(!paused) { "Recording already paused" }
