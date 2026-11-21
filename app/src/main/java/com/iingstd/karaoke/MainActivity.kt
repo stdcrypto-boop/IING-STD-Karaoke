@@ -94,7 +94,13 @@ class MainActivity : ComponentActivity() {
             var musicGain by remember { mutableFloatStateOf(0.65f) }
             var voiceGain by remember { mutableFloatStateOf(1f) }
             var syncAdjustmentMs by remember { mutableFloatStateOf(0f) }
-            var mixedFile by remember { mutableStateOf<File?>(null) }
+            var mixedFile by remember {
+                mutableStateOf(
+                    recordingPrefs.getString("last_mix_path", null)?.let(::File)?.takeIf {
+                        it.isFile && it.length() > 44L
+                    }
+                )
+            }
             var lastRecording by remember {
                 mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
             }
@@ -419,9 +425,12 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 val backing = source ?: return@Button
                                 val voice = lastRecording ?: return@Button
+                                val selectedMusicGain = musicGain
+                                val selectedVoiceGain = voiceGain
+                                val selectedSyncMs = syncAdjustmentMs.toLong()
+                                val selectedBackingStartMs = recordingPrefs.getLong("last_backing_start_ms", 0L)
                                 mixing = true
                                 mixStatus = "Memproses audio di perangkat…"
-                                mixedFile = null
                                 mixScope.launch {
                                     try {
                                         val result = withContext(Dispatchers.IO) {
@@ -433,11 +442,10 @@ class MainActivity : ComponentActivity() {
                                                     this@MainActivity,
                                                     Uri.parse(backing),
                                                     voice,
-                                                    (recordingPrefs.getLong("last_backing_start_ms", 0L) +
-                                                        syncAdjustmentMs.toLong()).coerceAtLeast(0L),
+                                                    (selectedBackingStartMs + selectedSyncMs).coerceAtLeast(0L),
                                                     destination,
-                                                    musicGain,
-                                                    voiceGain
+                                                    selectedMusicGain,
+                                                    selectedVoiceGain
                                                 )
                                             } catch (e: Exception) {
                                                 destination.delete()
@@ -445,6 +453,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                         mixedFile = result
+                                        recordingPrefs.edit().putString("last_mix_path", result.absolutePath).apply()
                                         mixStatus = "Mix WAV tersimpan: ${result.name}"
                                     } catch (e: Exception) {
                                         mixStatus = "Mix gagal: ${e.message ?: "format audio tidak didukung"}"
