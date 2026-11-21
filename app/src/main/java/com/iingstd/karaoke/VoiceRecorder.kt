@@ -6,6 +6,7 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.provider.MediaStore
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -17,6 +18,7 @@ import java.util.Locale
 class VoiceRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var output: Uri? = null
+    private var descriptor: ParcelFileDescriptor? = null
 
     val isRecording: Boolean get() = recorder != null
 
@@ -34,15 +36,16 @@ class VoiceRecorder(private val context: Context) {
         output = uri
         try {
             val fd = context.contentResolver.openFileDescriptor(uri, "w") ?: error("Cannot open recording file")
+            descriptor = fd
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
-            fd.use {
+            run {
                 r.setAudioSource(MediaRecorder.AudioSource.MIC)
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 r.setAudioEncodingBitRate(128000)
                 r.setAudioSamplingRate(44100)
-                r.setOutputFile(it.fileDescriptor)
+                r.setOutputFile(fd.fileDescriptor)
                 r.prepare()
                 r.start()
             }
@@ -50,6 +53,8 @@ class VoiceRecorder(private val context: Context) {
         } catch (e: Exception) {
             recorder?.runCatching { reset(); release() }
             recorder = null
+            descriptor?.close()
+            descriptor = null
             context.contentResolver.delete(uri, null, null)
             output = null
             throw e
@@ -66,8 +71,10 @@ class VoiceRecorder(private val context: Context) {
             r.stop()
             success = true
         } finally {
-            r.reset()
+            runCatching { r.reset() }
             r.release()
+            descriptor?.close()
+            descriptor = null
             if (uri != null) {
                 if (success) {
                     context.contentResolver.update(uri, ContentValues().apply {
