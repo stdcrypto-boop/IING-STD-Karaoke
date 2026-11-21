@@ -116,6 +116,7 @@ object AudioMixEngine {
     private fun decode(context: Context, uri: Uri, target: File): Pcm {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
+        var pcmOutput: FileOutputStream? = null
         try {
             // MediaExtractor's URI overload handles content providers with unknown
             // asset lengths (and regular file URIs) without passing a negative length.
@@ -147,6 +148,7 @@ object AudioMixEngine {
             decoder.configure(format, null, null, 0)
             decoder.start()
             val out = FileOutputStream(target)
+            pcmOutput = out
             var written = 0L
             val info = MediaCodec.BufferInfo()
             var inputDone = false
@@ -207,9 +209,11 @@ object AudioMixEngine {
             }
             require(channels in 1..2) { "Hanya audio mono atau stereo didukung" }
             out.close()
+            pcmOutput = null
             require(written > 0 && written % (channels * 2L) == 0L) { "PCM tidak lengkap" }
             return Pcm(target, rate, channels, written / (channels * 2L))
         } finally {
+            runCatching { pcmOutput?.close() }
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
             extractor.release()
