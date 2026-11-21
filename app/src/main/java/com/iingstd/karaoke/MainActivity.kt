@@ -58,7 +58,9 @@ class MainActivity : ComponentActivity() {
                     player.setMediaItem(MediaItem.fromUri(song.uri))
                     player.prepare()
                     player.play()
+                    player.setPlaybackSpeed(speed)
                     currentSong = song
+                    lyrics = emptyList()
                     track = song.title
                     library.record(song.copy(playedAt = System.currentTimeMillis()))
                     history = library.history()
