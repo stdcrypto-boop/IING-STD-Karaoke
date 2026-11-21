@@ -39,6 +39,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val player = remember { ExoPlayer.Builder(this).build() }
             DisposableEffect(player) { onDispose { player.release() } }
+            val library = remember { SongLibrary(this) }
+            var history by remember { mutableStateOf(library.history()) }
+            var favorites by remember { mutableStateOf(library.favorites()) }
+            var currentSong by remember { mutableStateOf<SavedSong?>(null) }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
             var track by remember { mutableStateOf("Belum ada lagu") }
@@ -49,15 +53,23 @@ class MainActivity : ComponentActivity() {
             var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
             val lyricListState = rememberLazyListState()
             var error by remember { mutableStateOf("") }
+            fun playSong(song: SavedSong) {
+                try {
+                    player.setMediaItem(MediaItem.fromUri(song.uri))
+                    player.prepare()
+                    player.play()
+                    currentSong = song
+                    track = song.title
+                    library.record(song.copy(playedAt = System.currentTimeMillis()))
+                    history = library.history()
+                    error = ""
+                } catch (e: Exception) { error = e.message ?: "Gagal memutar lagu" }
+            }
             val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 if (uri != null) {
                     try {
-                        player.setMediaItem(MediaItem.fromUri(uri))
-                        player.prepare()
-                        player.play()
-                        playing = true
-                        track = uri.lastPathSegment?.substringAfterLast('/') ?: "Audio lokal"
-                        error = ""
+                        try { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
+                        playSong(SavedSong(uri.lastPathSegment?.substringAfterLast('/') ?: "Audio lokal", uri.toString(), false, System.currentTimeMillis()))
                     } catch (e: Exception) { error = e.message ?: "Tidak dapat membuka audio" }
                 }
             }
@@ -123,16 +135,19 @@ class MainActivity : ComponentActivity() {
                                 error = "Gunakan tautan audio HTTPS langsung"
                             } else {
                                 try {
-                                    player.setMediaItem(MediaItem.fromUri(url.trim()))
-                                    player.prepare()
-                                    player.play()
-                                    track = "Streaming online"
-                                    error = ""
+                                    playSong(SavedSong("Streaming online", url.trim(), true, System.currentTimeMillis()))
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
                     }
                     Spacer(Modifier.height(12.dp))
+                    currentSong?.let { song ->
+                        val saved = favorites.any { it.uri == song.uri }
+                        TextButton(onClick = {
+                            library.toggleFavorite(song)
+                            favorites = library.favorites()
+                        }) { Text(if (saved) "♥ Tersimpan" else "♡ Simpan lagu") }
+                    }
                     Text(track, color = Color.White, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(12.dp))
                     Slider(value = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
@@ -157,9 +172,43 @@ class MainActivity : ComponentActivity() {
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
+                    var selectedList by remember { mutableStateOf("Lirik") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Lirik", "Disimpan", "Riwayat").forEach { tab ->
+                            TextButton(onClick = { selectedList = tab }) {
+                                Text(tab, color = if (selectedList == tab) Pink else Color.LightGray)
+                            }
+                        }
+                    }
                     if (error.isNotBlank()) Text(error, color = Color(0xFFFF9E9E))
                     val current = activeLyricIndex
-                    LazyColumn(
+                    if (selectedList != "Lirik") {
+                        val songs = if (selectedList == "Disimpan") favorites else history
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                                .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (songs.isEmpty()) item { Text("Belum ada lagu", color = Color.LightGray) }
+                            items(songs.size) { i ->
+                                val song = songs[i]
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = { playSong(song) }, modifier = Modifier.weight(1f)) {
+                                        Text("▶ " + song.title, maxLines = 2)
+                                    }
+                                    TextButton(onClick = {
+                                        if (selectedList == "Disimpan") {
+                                            library.toggleFavorite(song)
+                                            favorites = library.favorites()
+                                        } else {
+                                            library.removeHistory(song.uri)
+                                            history = library.history()
+                                        }
+                                    }) { Text("Hapus") }
+                                }
+                            }
+                        }
+                    } else LazyColumn(
                         state = lyricListState,
                         modifier = Modifier.fillMaxWidth().weight(1f)
                             .background(Color(0xFF21182D), RoundedCornerShape(20.dp)).padding(14.dp),
