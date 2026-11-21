@@ -105,6 +105,18 @@ object AudioMixEngine {
             extractor.selectTrack(track)
             val format = extractor.getTrackFormat(track)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: error("Format audio tidak diketahui")
+            val sourceRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            val sourceChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            require(sourceRate > 0 && sourceChannels in 1..2) { "Hanya audio mono atau stereo didukung" }
+            if (format.containsKey(MediaFormat.KEY_DURATION)) {
+                val durationUs = format.getLong(MediaFormat.KEY_DURATION)
+                if (durationUs > 0) {
+                    val estimatedBytes = durationUs / 1000L * sourceRate * sourceChannels * 2L / 1000L
+                    require(estimatedBytes <= MAX_PCM_BYTES_PER_TRACK) {
+                        "Audio terlalu panjang untuk mixing versi ini (maksimum 32 MB PCM per track)"
+                    }
+                }
+            }
             val decoder = MediaCodec.createDecoderByType(mime)
             codec = decoder
             decoder.configure(format, null, null, 0)
