@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> intent.dataString
             else -> null
         } ?: return
-        val link = Regex("https?://[^\\\\s]+").find(shared)?.value ?: return
+        val link = Regex("https?://[^\\s]+").find(shared)?.value ?: return
         val parsed = Uri.parse(link)
         val host = parsed.host?.lowercase()?.removePrefix("www.") ?: return
         if (host == "youtu.be" || host == "youtube.com" || host == "m.youtube.com" ||
@@ -167,6 +167,8 @@ class MainActivity : ComponentActivity() {
                         player.clearMediaItems()
                         youtubeVideoId = id
                         currentSong = null
+                        localVideoUri = null
+                        track = "YouTube • " + id
                         mode = "Online"
                         url = link
                     }
