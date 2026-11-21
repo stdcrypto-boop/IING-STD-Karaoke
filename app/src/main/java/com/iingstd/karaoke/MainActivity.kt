@@ -41,6 +41,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -148,6 +149,7 @@ class MainActivity : ComponentActivity() {
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
             var youtubeVideoId by remember { mutableStateOf<String?>(null) }
+            var localVideoUri by remember { mutableStateOf<String?>(null) }
             var track by remember { mutableStateOf("Belum ada lagu") }
             var playing by remember { mutableStateOf(false) }
             var position by remember { mutableLongStateOf(0L) }
@@ -163,6 +165,8 @@ class MainActivity : ComponentActivity() {
             fun playSong(song: SavedSong) {
                 try {
                     youtubeVideoId = null
+                    localVideoUri = if (!song.isOnline && (song.uri.endsWith(".mp4", true) ||
+                        runCatching { contentResolver.getType(Uri.parse(song.uri))?.startsWith("video/") == true }.getOrDefault(false))) song.uri else null
                     player.setMediaItem(MediaItem.fromUri(song.uri))
                     player.prepare()
                     player.play()
@@ -234,8 +238,8 @@ class MainActivity : ComponentActivity() {
                     }
                     Spacer(Modifier.height(14.dp))
                     if (mode == "Offline") {
-                        Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("📁 Pilih lagu dari HP")
+                        Button(onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("📁 Pilih MP3 atau video MP4 dari HP")
                         }
                     } else {
                         OutlinedTextField(value = url, onValueChange = { url = it },
@@ -269,6 +273,22 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
+                    }
+                    localVideoUri?.let { selectedUri ->
+                        Text("🎬 Video karaoke offline", color = Pink)
+                        key(selectedUri) {
+                            AndroidView(
+                                factory = { context ->
+                                    PlayerView(context).apply {
+                                        this.player = player
+                                        useController = true
+                                    }
+                                },
+                                update = { view -> view.player = player },
+                                onRelease = { view -> view.player = null },
+                                modifier = Modifier.fillMaxWidth().height(230.dp)
+                            )
+                        }
                     }
                     youtubeVideoId?.let { videoId ->
                         Text("▶ Video YouTube", color = Pink)
