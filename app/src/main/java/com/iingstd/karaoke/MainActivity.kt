@@ -233,14 +233,21 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         OutlinedTextField(value = url, onValueChange = { url = it },
-                            label = { Text("Tautan audio HTTPS langsung") },
+                            label = { Text("URL audio langsung (bukan link YouTube)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
-                            if (!url.trim().startsWith("https://", ignoreCase = true)) {
-                                error = "Gunakan tautan audio HTTPS langsung"
+                            val link = url.trim()
+                            val parsed = Uri.parse(link)
+                            val host = parsed.host?.lowercase().orEmpty()
+                            if (parsed.scheme?.lowercase() != "https" || host.isBlank()) {
+                                error = "Masukkan URL HTTPS audio yang valid"
+                            } else if (host == "youtu.be" || host == "youtube.com" ||
+                                host == "www.youtube.com" || host == "m.youtube.com" ||
+                                host == "music.youtube.com") {
+                                error = "Link YouTube belum didukung. Gunakan mode Offline untuk MP3 di HP, atau URL langsung ke file audio (misalnya .mp3)."
                             } else {
                                 try {
-                                    playSong(SavedSong(Uri.parse(url.trim()).lastPathSegment ?: "Streaming online", url.trim(), true, System.currentTimeMillis()))
+                                    playSong(SavedSong(parsed.lastPathSegment ?: "Streaming online", link, true, System.currentTimeMillis()))
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
