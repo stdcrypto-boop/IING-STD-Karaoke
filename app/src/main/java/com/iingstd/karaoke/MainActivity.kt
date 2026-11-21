@@ -45,11 +45,21 @@ class MainActivity : ComponentActivity() {
             val library = remember { SongLibrary(this) }
             val recorder = remember { VoiceRecorder(this) }
             var recording by remember { mutableStateOf(false) }
+            var recordingStartedAt by remember { mutableLongStateOf(0L) }
+            var recordingSeconds by remember { mutableLongStateOf(0L) }
+            LaunchedEffect(recording) {
+                while (recording) {
+                    recordingSeconds = ((android.os.SystemClock.elapsedRealtime() - recordingStartedAt) / 1000).coerceAtLeast(0)
+                    delay(500)
+                }
+            }
             var recordingStatus by remember { mutableStateOf("") }
             fun beginRecording() {
                 try {
                     recorder.start()
                     recording = true
+                    recordingStartedAt = android.os.SystemClock.elapsedRealtime()
+                    recordingSeconds = 0
                     recordingStatus = "Merekam mikrofon…"
                 } catch (e: Exception) {
                     recordingStatus = "Gagal merekam: " + (e.message ?: "kesalahan audio")
@@ -226,6 +236,7 @@ class MainActivity : ComponentActivity() {
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (recording) "⏹ Hentikan rekaman suara" else "🎙 Rekam suara mikrofon")
                     }
+                    if (recording) Text("● REC  " + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
