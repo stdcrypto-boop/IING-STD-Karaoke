@@ -45,3 +45,6 @@ Decoder output changes in sample rate or channel count after PCM samples have be
 
 ### YouTube (mode Online)
 Tautan video YouTube standar, youtu.be, Shorts, dan live kini membuka pemutar video YouTube tertanam (WebView/iframe) di dalam aplikasi. Pemutaran bergantung pada koneksi, kebijakan embed pemilik video, dan dukungan WebView/YouTube; tersedia tombol membuka aplikasi YouTube sebagai cadangan. Pemutar YouTube terpisah dari Media3: kontrol kecepatan/pitch, sinkronisasi rekaman, dan mixing/ekspor musik YouTube **belum** didukung. Gunakan file musik lokal untuk mixing. Fitur ini belum diuji di perangkat fisik.
+
+### Video MP4 offline
+Mode Offline menerima audio dan video MP4 dari pemilih dokumen Android. Video lokal ditampilkan melalui Media3 PlayerView dengan kontrol pemutaran. Dukungan codec bergantung pada perangkat; mixing tetap mengekspor audio WAV saja, bukan video MP4. Pengujian pada perangkat fisik masih diperlukan.
