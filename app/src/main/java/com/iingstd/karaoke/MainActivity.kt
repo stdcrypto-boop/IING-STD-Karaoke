@@ -5,6 +5,9 @@ import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import android.os.Build
+import java.io.File
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -283,7 +286,14 @@ class MainActivity : ComponentActivity() {
                             try {
                                 val share = Intent(Intent.ACTION_SEND).apply {
                                     type = "audio/mp4"
-                                    putExtra(Intent.EXTRA_STREAM, lastRecording)
+                                    val source = lastRecording!!
+                                    val shareUri = if (source.scheme == "file" && Build.VERSION.SDK_INT < 29) {
+                                        FileProvider.getUriForFile(this@MainActivity,
+                                            "com.iingstd.karaoke.fileprovider",
+                                            File(requireNotNull(source.path)))
+                                    } else source
+                                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                                    clipData = android.content.ClipData.newUri(contentResolver, "Rekaman karaoke", shareUri)
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 startActivity(Intent.createChooser(share, "Bagikan rekaman karaoke"))
