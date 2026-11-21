@@ -81,7 +81,6 @@ class VoiceRecorder(private val context: Context) {
             descriptor = fd
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
-            var selectedInputId: Int? = null
             run {
                 r.setAudioSource(if (Build.VERSION.SDK_INT >= 29) MediaRecorder.AudioSource.VOICE_PERFORMANCE else MediaRecorder.AudioSource.MIC)
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -91,30 +90,25 @@ class VoiceRecorder(private val context: Context) {
                 if (fd != null) r.setOutputFile(fd.fileDescriptor)
                 else r.setOutputFile(legacyFile?.absolutePath ?: error("Missing output file"))
                 r.prepare()
-                if (Build.VERSION.SDK_INT >= 28 && preferExternalMic) {
+                // Automatically prefer a connected USB soundcard or wired mic.
+                // Bluetooth SCO is left to Android routing: forcing it can interrupt
+                // playback or select a speaker-only Bluetooth connection.
+                if (Build.VERSION.SDK_INT >= 28) {
                     val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS)
                     val external = inputs.firstOrNull {
-                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
                         it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
-                        it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                    } ?: error("Mikrofon headset/USB/Bluetooth tidak terdeteksi. Pilih mikrofon HP.")
-                    selectedInputId = external.id
-                    check(r.setPreferredDevice(external)) {
-                        "Tidak dapat memilih mikrofon eksternal. Pilih mikrofon HP."
+                            it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                    } ?: inputs.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
                     }
+                    if (external != null && r.setPreferredDevice(external)) {
+                    }
+                    // Without an external input, Android uses the phone mic.
                 }
                 r.start()
-                // Verify the exact requested microphone, not only its device type.
-                if (Build.VERSION.SDK_INT >= 28 && selectedInputId != null) {
-                    val routed = r.routedDevice
-                    if (routed != null) {
-                        check(routed.id == selectedInputId) {
-                            "Input rekaman dialihkan ke ${routed.productName}. Sambungkan ulang mikrofon eksternal atau pilih mikrofon HP."
-                        }
-                    }
-                }
+                // Android may override a preferred route; never discard a valid
+                // take solely because a peripheral was unplugged mid-start.
             }
             return uri
         } catch (e: Exception) {
