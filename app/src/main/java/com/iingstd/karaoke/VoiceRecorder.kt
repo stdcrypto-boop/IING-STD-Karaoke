@@ -23,10 +23,28 @@ class VoiceRecorder(private val context: Context) {
     private var descriptor: ParcelFileDescriptor? = null
     private var legacyFile: File? = null
 
+    private var paused = false
     val isRecording: Boolean get() = recorder != null
+    val isPaused: Boolean get() = paused
+
+    fun pause() {
+        check(!paused) { "Recording already paused" }
+        val active = recorder ?: error("No recording in progress")
+        active.pause()
+        paused = true
+    }
+
+    fun resume() {
+        check(paused) { "Recording is not paused" }
+        val active = recorder ?: error("No recording in progress")
+        active.resume()
+        paused = false
+    }
+
 
     fun start(): Uri {
         check(recorder == null) { "Recording already in progress" }
+        paused = false
         val name = "IING-VOICE-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".m4a"
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, name)
@@ -67,6 +85,7 @@ class VoiceRecorder(private val context: Context) {
         } catch (e: Exception) {
             recorder?.runCatching { reset(); release() }
             recorder = null
+            paused = false
             descriptor?.close()
             descriptor = null
             if (Build.VERSION.SDK_INT >= 29) context.contentResolver.delete(uri, null, null)
@@ -81,6 +100,7 @@ class VoiceRecorder(private val context: Context) {
         val r = recorder ?: return null
         val uri = output
         recorder = null
+        paused = false
         output = null
         var success = false
         try {
