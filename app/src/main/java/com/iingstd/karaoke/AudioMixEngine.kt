@@ -74,8 +74,7 @@ object AudioMixEngine {
                         header.putInt(bytes)
                         output.write(header.array())
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
-                        val sum = backingGain + voiceGain
-                        val scale = if (sum > 1f) 1f / sum else 1f
+                        val vocalProcessor = Array(2) { VocalProcessor(rate) }
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
@@ -93,9 +92,13 @@ object AudioMixEngine {
                                     val b = music.sample(second, channel)
                                     a + (b - a) * fraction
                                 } else 0.0
-                                val voiceSample = vocal.sample(frame, channel)
-                                val mixed = ((musicSample * backingGain + voiceSample * voiceGain) *
-                                    scale * fade).toInt().coerceIn(-32768, 32767)
+                                val voiceSample = vocalProcessor[channel].process(
+                                    vocal.sample(frame, channel).toDouble() / 32768.0
+                                )
+                                val combined = musicSample / 32768.0 * backingGain +
+                                    voiceSample * voiceGain
+                                val mixed = (softLimit(combined) * fade * 32767.0)
+                                    .toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
                                     output.write(block.array(), 0, block.position())
                                     block.clear()
@@ -114,6 +117,34 @@ object AudioMixEngine {
         } finally {
             backingTemp.delete()
             voiceTemp?.delete()
+        }
+    }
+
+    /** Remove microphone rumble and gently compress loud vocal syllables. */
+    private class VocalProcessor(sampleRate: Int) {
+        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * 90.0 / sampleRate)
+        private val attack = kotlin.math.exp(-1.0 / (sampleRate * 0.008))
+        private val release = kotlin.math.exp(-1.0 / (sampleRate * 0.120))
+        private var lowPass = 0.0
+        private var envelope = 0.0
+
+        fun process(sample: Double): Double {
+            lowPass = (1.0 - hpAlpha) * sample + hpAlpha * lowPass
+            val highPassed = sample - lowPass
+            val level = kotlin.math.abs(highPassed)
+            val smoothing = if (level > envelope) attack else release
+            envelope = smoothing * envelope + (1.0 - smoothing) * level
+            val gain = if (envelope > 0.18) kotlin.math.sqrt(0.18 / envelope) else 1.0
+            return highPassed * gain
+        }
+    }
+
+    /** Limit peaks without reducing the entire song's volume. */
+    private fun softLimit(value: Double): Double {
+        val magnitude = kotlin.math.abs(value)
+        return if (magnitude <= 0.80) value else {
+            val excess = magnitude - 0.80
+            kotlin.math.sign(value) * (0.80 + 0.19 * excess / (0.19 + excess))
         }
     }
 
