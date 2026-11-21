@@ -154,6 +154,8 @@ class MainActivity : ComponentActivity() {
             var onlineSearch by remember { mutableStateOf("") }
 
             var youtubeVideoId by remember { mutableStateOf<String?>(null) }
+            var localVideoUri by remember { mutableStateOf<String?>(null) }
+            var track by remember { mutableStateOf("Belum ada lagu") }
             LaunchedEffect(incomingYouTubeLink) {
                 incomingYouTubeLink?.let { link ->
                     val parsed = Uri.parse(link)
@@ -175,8 +177,6 @@ class MainActivity : ComponentActivity() {
                     incomingYouTubeLink = null
                 }
             }
-            var localVideoUri by remember { mutableStateOf<String?>(null) }
-            var track by remember { mutableStateOf("Belum ada lagu") }
             var playing by remember { mutableStateOf(false) }
             var position by remember { mutableLongStateOf(0L) }
             var duration by remember { mutableLongStateOf(0L) }
