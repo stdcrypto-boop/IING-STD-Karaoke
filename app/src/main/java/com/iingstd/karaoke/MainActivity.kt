@@ -1,6 +1,9 @@
 package com.iingstd.karaoke
 
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,6 +43,26 @@ class MainActivity : ComponentActivity() {
             val player = remember { ExoPlayer.Builder(this).build() }
             DisposableEffect(player) { onDispose { player.release() } }
             val library = remember { SongLibrary(this) }
+            val recorder = remember { VoiceRecorder(this) }
+            var recording by remember { mutableStateOf(false) }
+            var recordingStatus by remember { mutableStateOf("") }
+            fun beginRecording() {
+                try {
+                    recorder.start()
+                    recording = true
+                    recordingStatus = "Merekam mikrofon…"
+                } catch (e: Exception) {
+                    recordingStatus = "Gagal merekam: " + (e.message ?: "kesalahan audio")
+                }
+            }
+            val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                if (granted) beginRecording() else recordingStatus = "Izin mikrofon diperlukan"
+            }
+            DisposableEffect(recorder) {
+                onDispose {
+                    if (recorder.isRecording) runCatching { recorder.stop() }
+                }
+            }
             var history by remember { mutableStateOf(library.history()) }
             var favorites by remember { mutableStateOf(library.favorites()) }
             var currentSong by remember { mutableStateOf<SavedSong?>(null) }
@@ -187,6 +210,24 @@ class MainActivity : ComponentActivity() {
                         repeatOne = !repeatOne
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
+                    Button(onClick = {
+                        if (recording) {
+                            try {
+                                val saved = recorder.stop()
+                                recording = false
+                                recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
+                            } catch (e: Exception) {
+                                recording = false
+                                recordingStatus = "Gagal menyimpan rekaman: " + (e.message ?: "kesalahan audio")
+                            }
+                        } else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            beginRecording()
+                        } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (recording) "⏹ Hentikan rekaman suara" else "🎙 Rekam suara mikrofon")
+                    }
+                    if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
+                    Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
