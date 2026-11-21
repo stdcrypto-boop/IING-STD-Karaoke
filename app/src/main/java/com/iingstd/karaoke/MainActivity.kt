@@ -118,6 +118,33 @@ class MainActivity : ComponentActivity() {
             var lastRecording by remember {
                 mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
             }
+            DisposableEffect(recorder) {
+                onDispose {
+                    if (recorder.isRecording) runCatching { recorder.stop() }
+                }
+            }
+            var history by remember { mutableStateOf(library.history()) }
+            var favorites by remember { mutableStateOf(library.favorites()) }
+            var currentSong by remember { mutableStateOf<SavedSong?>(null) }
+            var mode by remember { mutableStateOf("Offline") }
+            var url by remember { mutableStateOf("") }
+            var youtubeVideoId by remember { mutableStateOf<String?>(null) }
+            var localVideoUri by remember { mutableStateOf<String?>(null) }
+            var track by remember { mutableStateOf("Belum ada lagu") }
+            var playing by remember { mutableStateOf(false) }
+            var position by remember { mutableLongStateOf(0L) }
+            var duration by remember { mutableLongStateOf(0L) }
+            var speed by remember { mutableFloatStateOf(1f) }
+            var pitch by remember { mutableFloatStateOf(1f) }
+            var volume by remember { mutableFloatStateOf(1f) }
+            var repeatOne by remember { mutableStateOf(false) }
+            var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
+            var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
+            val lyricListState = rememberLazyListState()
+            var error by remember { mutableStateOf("") }
+            var showPlaybackOptions by remember { mutableStateOf(false) }
+            var showMicOptions by remember { mutableStateOf(false) }
+            var showMixOptions by remember { mutableStateOf(false) }
             fun beginRecording() {
                 try {
                     if (youtubeVideoId != null) {
@@ -164,33 +191,6 @@ class MainActivity : ComponentActivity() {
             val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (granted) beginRecording() else recordingStatus = "Izin mikrofon diperlukan"
             }
-            DisposableEffect(recorder) {
-                onDispose {
-                    if (recorder.isRecording) runCatching { recorder.stop() }
-                }
-            }
-            var history by remember { mutableStateOf(library.history()) }
-            var favorites by remember { mutableStateOf(library.favorites()) }
-            var currentSong by remember { mutableStateOf<SavedSong?>(null) }
-            var mode by remember { mutableStateOf("Offline") }
-            var url by remember { mutableStateOf("") }
-            var youtubeVideoId by remember { mutableStateOf<String?>(null) }
-            var localVideoUri by remember { mutableStateOf<String?>(null) }
-            var track by remember { mutableStateOf("Belum ada lagu") }
-            var playing by remember { mutableStateOf(false) }
-            var position by remember { mutableLongStateOf(0L) }
-            var duration by remember { mutableLongStateOf(0L) }
-            var speed by remember { mutableFloatStateOf(1f) }
-            var pitch by remember { mutableFloatStateOf(1f) }
-            var volume by remember { mutableFloatStateOf(1f) }
-            var repeatOne by remember { mutableStateOf(false) }
-            var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
-            var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
-            val lyricListState = rememberLazyListState()
-            var error by remember { mutableStateOf("") }
-            var showPlaybackOptions by remember { mutableStateOf(false) }
-            var showMicOptions by remember { mutableStateOf(false) }
-            var showMixOptions by remember { mutableStateOf(false) }
             fun playSong(song: SavedSong) {
                 try {
                     youtubeVideoId = null
