@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity() {
                     recordingPausedMs = 0L
                     recordingStartedAt = android.os.SystemClock.elapsedRealtime()
                     recordingSeconds = 0
-                    recordingStatus = "Merekam mikrofon…"
+                    recordingStatus = if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file") } == true) "Merekam vokal. Musik lokal akan digabung otomatis." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
                 } catch (e: Exception) {
                     recordingStatus = "Gagal merekam: " + (e.message ?: "kesalahan audio")
                 }
