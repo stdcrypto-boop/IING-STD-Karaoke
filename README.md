@@ -10,12 +10,12 @@ Android karaoke player with offline audio and direct HTTPS streaming.
 - Record microphone audio to AAC/M4A; pause and resume recording.
 - Play and share the latest voice recording.
 - Save the backing-track URI and playback position at recording start.
-- Offline WAV mixing button for accessible local backing tracks and microphone recordings, with independent music/voice gain, playback, and sharing.
+- Offline WAV mixing button for accessible local backing tracks and microphone recordings, with independent music/voice gain, manual backing synchronization adjustment (±500 ms), playback, and sharing.
 - Audio-focus and headphone-disconnection handling.
 - Scrollable Jetpack Compose interface.
 
 ## Recording behavior and limitations
-**Microphone recording itself captures vocals only.** A separate offline mixing action now decodes the recorded voice and accessible local backing track, combines them, and exports a stereo WAV. It requires matching sample rates, supports mono/stereo 16-bit PCM decoding, and does not support streaming backing tracks. The mixer uses the saved playback position, but cannot compensate for device recording latency, changes to playback speed/pitch, or pauses during recording. It has not been device-tested. The mixer caps decoded PCM at 32 MiB per track to reduce memory exhaustion; longer tracks are rejected with an error. The backing track must extend through the full vocal recording, otherwise mixing is rejected rather than silently truncated.
+**Microphone recording itself captures vocals only.** A separate offline mixing action now decodes the recorded voice and accessible local backing track, combines them, and exports a stereo WAV. It requires matching sample rates, supports mono/stereo 16-bit PCM decoding, and does not support streaming backing tracks. The mixer uses the saved playback position, but cannot compensate for device recording latency, changes to playback speed/pitch, or pauses during recording. It has not been device-tested. The mixer checks estimated decoded size before decoding and caps PCM at 32 MiB per track to reduce memory exhaustion; longer tracks are rejected with an error. The backing track must extend through the full vocal recording, otherwise mixing is rejected rather than silently truncated.
 
 For cleaner vocals, use wired headphones while recording to avoid speaker bleed. On Android 10+ recordings are saved to Music/IING STD Karaoke via MediaStore. On Android 8–9 they are saved to the app-specific external Music folder and may be deleted if the app is uninstalled.
 
