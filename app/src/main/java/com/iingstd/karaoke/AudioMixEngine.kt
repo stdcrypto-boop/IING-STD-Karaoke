@@ -36,14 +36,24 @@ object AudioMixEngine {
             val backing = decode(context, backingUri, backingTemp)
             val voice = decode(context, voiceUri, voiceTemp)
             val rate = voice.sampleRate
-            val offset = backingStartMs.coerceAtLeast(0) * backing.sampleRate / 1000L
-            require(offset < backing.frames) { "Posisi awal melewati durasi musik" }
-            val needed = (voice.frames * backing.sampleRate + rate - 1) / rate
-            require(needed <= backing.frames - offset) {
-                "Musik pengiring berakhir sebelum rekaman vokal selesai"
-            }
-            require(voice.frames > 0 && voice.frames * 4 <= Int.MAX_VALUE - 44) {
+            require(rate > 0 && backing.sampleRate > 0) { "Sample rate audio tidak valid" }
+            require(voice.frames > 0 && voice.frames <= (Int.MAX_VALUE.toLong() - 44L) / 4L) {
                 "Rekaman terlalu panjang untuk WAV"
+            }
+            val startMs = backingStartMs.coerceAtLeast(0L)
+            // Reject impossible offsets before multiplication to prevent Long overflow.
+            val maxStartMs = (backing.frames / backing.sampleRate) * 1000L +
+                (backing.frames % backing.sampleRate) * 1000L / backing.sampleRate
+            require(startMs < maxStartMs) { "Posisi awal melewati durasi musik" }
+            val offset = (startMs / 1000L) * backing.sampleRate +
+                (startMs % 1000L) * backing.sampleRate / 1000L
+            require(offset < backing.frames) { "Posisi awal melewati durasi musik" }
+            // Compare durations without multiplying two potentially large frame counts.
+            val availableFrames = backing.frames - offset
+            val needed = (voice.frames / rate) * backing.sampleRate +
+                ((voice.frames % rate) * backing.sampleRate + rate - 1L) / rate
+            require(needed <= availableFrames) {
+                "Musik pengiring berakhir sebelum rekaman vokal selesai"
             }
             destination.parentFile?.mkdirs()
             RandomAccessFile(backing.file, "r").use { musicFile ->
