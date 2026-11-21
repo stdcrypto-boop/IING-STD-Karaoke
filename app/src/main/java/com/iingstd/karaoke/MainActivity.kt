@@ -55,6 +55,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
             var recordingStatus by remember { mutableStateOf("") }
+            val recordingPrefs = remember { getSharedPreferences("karaoke_recording", MODE_PRIVATE) }
+            var lastRecording by remember {
+                mutableStateOf(recordingPrefs.getString("last_uri", null)?.let(Uri::parse))
+            }
             fun beginRecording() {
                 try {
                     recorder.start()
@@ -227,6 +231,10 @@ class MainActivity : ComponentActivity() {
                             try {
                                 val saved = recorder.stop()
                                 recording = false
+                                if (saved != null) {
+                                    lastRecording = saved
+                                    recordingPrefs.edit().putString("last_uri", saved.toString()).apply()
+                                }
                                 recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
                             } catch (e: Exception) {
                                 recording = false
@@ -239,6 +247,21 @@ class MainActivity : ComponentActivity() {
                         Text(if (recording) "⏹ Hentikan rekaman suara" else "🎙 Rekam suara mikrofon")
                     }
                     if (recording) Text("● REC  " + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
+                    if (!recording && lastRecording != null) {
+                        OutlinedButton(onClick = {
+                            try {
+                                player.setMediaItem(MediaItem.fromUri(lastRecording!!))
+                                player.prepare()
+                                player.play()
+                                track = "Hasil rekaman suara"
+                                currentSong = null
+                                lyrics = emptyList()
+                                error = ""
+                            } catch (e: Exception) {
+                                error = "Tidak bisa memutar rekaman: " + (e.message ?: "file tidak tersedia")
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("▶ Dengarkan rekaman terakhir") }
+                    }
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Nada: " + String.format("%.1f", 12f * (kotlin.math.ln(pitch.toDouble()) / kotlin.math.ln(2.0))) + " semitone", color = Color.LightGray)
