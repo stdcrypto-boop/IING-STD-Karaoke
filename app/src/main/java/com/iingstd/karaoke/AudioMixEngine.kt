@@ -13,7 +13,7 @@ import java.nio.ByteOrder
 
 /**
  * Offline prototype for mixing decoded PCM from two accessible local audio URIs.
- * Both streams must decode to 16-bit PCM at the same sample rate.
+ * Both streams must decode to 16-bit PCM; backing audio is resampled when needed.
  * Output is stereo PCM WAV. Call on a background thread, never the UI thread.
  */
 object AudioMixEngine {
@@ -115,9 +115,9 @@ object AudioMixEngine {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         try {
-            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
-                extractor.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            } ?: error("Audio tidak dapat dibuka")
+            // MediaExtractor's URI overload handles content providers with unknown
+            // asset lengths (and regular file URIs) without passing a negative length.
+            extractor.setDataSource(context, uri, null)
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
             } ?: error("Tidak ada track audio")
