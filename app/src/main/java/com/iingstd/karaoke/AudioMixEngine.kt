@@ -68,20 +68,20 @@ object AudioMixEngine {
             header.putInt(bytes)
             output.write(header.array())
             val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
+            val combinedGain = backingGain + voiceGain
+            val scale = if (combinedGain > 1f) 1f / combinedGain else 1f
+            val fadeFrames = (rate / 100).coerceAtLeast(1) // 10 ms
             for (frame in 0 until frames) {
+                val fadeIn = (frame.toFloat() / fadeFrames).coerceIn(0f, 1f)
+                val fadeOut = ((frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
+                val edgeGain = minOf(fadeIn, fadeOut)
+                val backingFrame = offsetFrames.toDouble() +
+                    frame.toDouble() * backing.sampleRate / rate
                 for (channel in 0..1) {
-                    val backingFrame = offsetFrames.toDouble() +
-                        frame.toDouble() * backing.sampleRate / rate
                     val music = interpolatedSample(backing, backingFrame, channel)
                     val vocal = sample(voice, frame, channel)
                     // Avoid hard clipping when both tracks peak at the same time.
                     // Scale both gains proportionally if their combined gain exceeds unity.
-                    val combinedGain = backingGain + voiceGain
-                    val scale = if (combinedGain > 1f) 1f / combinedGain else 1f
-                    val fadeFrames = (rate / 100).coerceAtLeast(1) // 10 ms fade at boundaries
-                    val fadeIn = (frame.toFloat() / fadeFrames).coerceIn(0f, 1f)
-                    val fadeOut = ((frames - 1 - frame).toFloat() / fadeFrames).coerceIn(0f, 1f)
-                    val edgeGain = minOf(fadeIn, fadeOut)
                     val mixed = ((music * backingGain + vocal * voiceGain) * scale * edgeGain)
                         .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                     if (block.remaining() < 2) {
