@@ -10,7 +10,7 @@ Android karaoke player with offline audio and direct HTTPS streaming.
 - Record microphone audio to AAC/M4A; pause and resume recording.
 - Play and share the latest voice recording.
 - Save the backing-track URI and playback position at recording start.
-- Offline WAV mixing button for accessible local backing tracks and microphone recordings, with independent music/voice gain, manual backing synchronization adjustment (±500 ms), playback, and sharing. The latest successful WAV export is remembered across app restarts while the file exists.
+- Offline WAV mixing button for accessible local backing tracks and microphone recordings, with independent music/voice gain, manual backing synchronization adjustment (±500 ms), playback, and sharing. The latest successful WAV export is remembered across app restarts while the file exists. The mixer scales combined gains to reduce clipping and applies a short 10 ms fade at the start and end of the export.
 - Audio-focus and headphone-disconnection handling.
 - Scrollable Jetpack Compose interface.
 
