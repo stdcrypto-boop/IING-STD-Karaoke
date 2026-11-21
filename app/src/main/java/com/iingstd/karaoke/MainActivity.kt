@@ -165,7 +165,7 @@ class MainActivity : ComponentActivity() {
             fun playSong(song: SavedSong) {
                 try {
                     youtubeVideoId = null
-                    localVideoUri = if (!song.isOnline && (song.uri.endsWith(".mp4", true) ||
+                    localVideoUri = if (!song.online && (song.uri.endsWith(".mp4", true) ||
                         runCatching { contentResolver.getType(Uri.parse(song.uri))?.startsWith("video/") == true }.getOrDefault(false))) song.uri else null
                     player.setMediaItem(MediaItem.fromUri(song.uri))
                     player.prepare()
