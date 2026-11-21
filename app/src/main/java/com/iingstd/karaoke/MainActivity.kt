@@ -188,6 +188,9 @@ class MainActivity : ComponentActivity() {
             var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
             val lyricListState = rememberLazyListState()
             var error by remember { mutableStateOf("") }
+            var showPlaybackOptions by remember { mutableStateOf(false) }
+            var showMicOptions by remember { mutableStateOf(false) }
+            var showMixOptions by remember { mutableStateOf(false) }
             fun playSong(song: SavedSong) {
                 try {
                     youtubeVideoId = null
@@ -374,6 +377,10 @@ class MainActivity : ComponentActivity() {
                         }
                         Button(onClick = { player.seekTo(position + 10000) }) { Text("10s ⏩") }
                     }
+                    TextButton(onClick = { showPlaybackOptions = !showPlaybackOptions }) {
+                        Text(if (showPlaybackOptions) "▴ Tutup pengaturan pemutar" else "⚙ Pengaturan pemutar")
+                    }
+                    if (showPlaybackOptions) {
                     Spacer(Modifier.height(8.dp))
                     Text("Kecepatan: ${"%.2f".format(speed)}×", color = Color.LightGray)
                     Slider(value = speed, onValueChange = {
@@ -392,6 +399,7 @@ class MainActivity : ComponentActivity() {
                         repeatOne = !repeatOne
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
+                    }
                     Text("Level mikrofon saat merekam", color = Pink)
                     LinearProgressIndicator(
                         progress = { microphoneLevel },
@@ -405,6 +413,10 @@ class MainActivity : ComponentActivity() {
                         else "Mulai merekam untuk melihat level mikrofon",
                         color = Color.LightGray, fontSize = 12.sp
                     )
+                    TextButton(onClick = { showMicOptions = !showMicOptions }) {
+                        Text(if (showMicOptions) "▴ Tutup pengaturan mikrofon" else "🎙 Pilihan mikrofon")
+                    }
+                    if (showMicOptions) {
                     Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Sumber mikrofon", color = Pink)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -418,6 +430,7 @@ class MainActivity : ComponentActivity() {
                         "Musik lokal digabung dari file asli, bukan direkam ulang dari speaker. " +
                         "Mikrofon Bluetooth mungkin tidak mendukung perekaman bersamaan dengan output musik.",
                         color = Color.LightGray, fontSize = 12.sp)
+                    }
                     Button(onClick = {
                         if (recording) {
                             try {
@@ -572,6 +585,10 @@ class MainActivity : ComponentActivity() {
                     if (!recording && lastRecording != null) {
                         Spacer(Modifier.height(12.dp))
                         Text("🎚 Mixing musik + vokal (WAV)", color = Pink, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showMixOptions = !showMixOptions }) {
+                            Text(if (showMixOptions) "▴ Tutup pengaturan mixing" else "⚙ Atur volume & sinkronisasi")
+                        }
+                        if (showMixOptions) {
                         Text("Musik: ${(musicGain * 100).toInt()}%", color = Color.LightGray)
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Vokal: ${(voiceGain * 100).toInt()}%", color = Color.LightGray)
@@ -588,6 +605,7 @@ class MainActivity : ComponentActivity() {
                             color = Color.LightGray,
                             fontSize = 12.sp
                         )
+                        }
                         val source = recordingPrefs.getString("last_backing_uri", null)
                         val mixCompatible = recordingPrefs.getBoolean("last_mix_compatible", false)
                         val supportedSource = source?.let {
