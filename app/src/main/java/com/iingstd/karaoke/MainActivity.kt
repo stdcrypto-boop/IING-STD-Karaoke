@@ -120,8 +120,25 @@ class MainActivity : ComponentActivity() {
             }
             fun beginRecording() {
                 try {
+                    if (youtubeVideoId != null) {
+                        recordingStatus = "Rekaman dengan musik YouTube belum didukung. Pilih MP3 atau MP4 offline terlebih dahulu."
+                        return
+                    }
+                    val song = currentSong
+                    if (song == null || song.online) {
+                        recordingStatus = "Pilih MP3 atau MP4 offline dahulu agar hasil rekaman bisa berisi musik dan vokal."
+                        return
+                    }
+                    // Always restart the backing track so a new take has a clean timeline.
+                    player.seekTo(0)
+                    player.playbackParameters = PlaybackParameters(1f, 1f)
+                    speed = 1f
+                    pitch = 1f
+                    player.repeatMode = Player.REPEAT_MODE_OFF
+                    repeatOne = false
+                    player.play()
                     sessionSongUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
-                    sessionSongTitle = player.mediaMetadata.title?.toString()
+                    sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
                     sessionMixCompatible = player.isPlaying &&
                         player.playbackParameters.speed == 1f &&
@@ -391,12 +408,13 @@ class MainActivity : ComponentActivity() {
                     Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Sumber mikrofon", color = Pink)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (externalMic) "Headset / USB / Bluetooth" else "Mikrofon HP", color = Color.LightGray,
+                        Text(if (externalMic) "Coba mikrofon headset / eksternal" else "Gunakan mikrofon HP", color = Color.LightGray,
                             modifier = Modifier.weight(1f))
                         Switch(checked = externalMic, onCheckedChange = { externalMic = it },
                             enabled = !recording)
                     }
-                    Text("Untuk speaker aktif atau Bluetooth: pilih mikrofon HP jika tidak ada mikrofon eksternal. " +
+                    Text("Sakelar ini hanya memilih sumber input saat mulai rekaman, BUKAN tombol hidup/mati mikrofon atau suara balik ke headset. " +
+                        "Untuk speaker aktif atau Bluetooth: pilih mikrofon HP jika tidak ada mikrofon eksternal. " +
                         "Musik lokal digabung dari file asli, bukan direkam ulang dari speaker. " +
                         "Mikrofon Bluetooth mungkin tidak mendukung perekaman bersamaan dengan output musik.",
                         color = Color.LightGray, fontSize = 12.sp)
@@ -475,8 +493,9 @@ class MainActivity : ComponentActivity() {
                             beginRecording()
                         } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (recording) "⏹ Hentikan rekaman suara" else "🎙 Rekam suara mikrofon")
+                        Text(if (recording) "⏹ Selesai & simpan rekaman" else "🎙 Mulai rekaman baru (musik + vokal)")
                     }
+                    Text(recordingStatus, color = Pink, fontSize = 13.sp)
                     if (recording) {
                         Text((if (recordingPaused) "⏸ DIJEDA  " else "● REC  ") + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
                         OutlinedButton(onClick = {
