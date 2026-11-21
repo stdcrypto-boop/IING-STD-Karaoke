@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
             var position by remember { mutableLongStateOf(0L) }
             var duration by remember { mutableLongStateOf(0L) }
             var speed by remember { mutableFloatStateOf(1f) }
+            var pitch by remember { mutableFloatStateOf(1f) }
             var volume by remember { mutableFloatStateOf(1f) }
             var repeatOne by remember { mutableStateOf(false) }
             var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
@@ -94,7 +96,7 @@ class MainActivity : ComponentActivity() {
                     player.setMediaItem(MediaItem.fromUri(song.uri))
                     player.prepare()
                     player.play()
-                    player.setPlaybackSpeed(speed)
+                    player.playbackParameters = PlaybackParameters(speed, pitch)
                     currentSong = song
                     lyrics = emptyList()
                     track = song.title
@@ -206,7 +208,7 @@ class MainActivity : ComponentActivity() {
                     Text("Kecepatan: ${"%.2f".format(speed)}×", color = Color.LightGray)
                     Slider(value = speed, onValueChange = {
                         speed = it
-                        player.setPlaybackSpeed(it)
+                        player.playbackParameters = PlaybackParameters(it, pitch)
                     }, valueRange = 0.5f..1.5f)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Volume", color = Color.LightGray)
@@ -239,6 +241,15 @@ class MainActivity : ComponentActivity() {
                     if (recording) Text("● REC  " + formatTime(recordingSeconds * 1000), color = Pink, fontWeight = FontWeight.Bold)
                     if (recordingStatus.isNotBlank()) Text(recordingStatus, color = Color.LightGray)
                     Text("Rekaman saat ini hanya suara mikrofon, belum dicampur dengan musik.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("Nada: " + String.format("%.1f", 12f * (kotlin.math.ln(pitch.toDouble()) / kotlin.math.ln(2.0))) + " semitone", color = Color.LightGray)
+                    Slider(value = pitch, onValueChange = {
+                        pitch = it
+                        player.playbackParameters = PlaybackParameters(speed, it)
+                    }, valueRange = 0.7071f..1.4142f)
+                    TextButton(onClick = {
+                        pitch = 1f
+                        player.playbackParameters = PlaybackParameters(speed, 1f)
+                    }) { Text("Reset nada") }
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
