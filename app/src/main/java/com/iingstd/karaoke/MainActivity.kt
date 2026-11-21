@@ -85,6 +85,8 @@ class MainActivity : ComponentActivity() {
             var sessionSongUri by remember { mutableStateOf<String?>(null) }
             var sessionSongTitle by remember { mutableStateOf<String?>(null) }
             var sessionStartPositionMs by remember { mutableLongStateOf(0L) }
+            var sessionMixCompatible by remember { mutableStateOf(true) }
+            var sessionMixWarning by remember { mutableStateOf("") }
             val recordingPrefs = remember { getSharedPreferences("karaoke_recording", MODE_PRIVATE) }
             val mixScope = rememberCoroutineScope()
             var mixing by remember { mutableStateOf(false) }
@@ -100,6 +102,12 @@ class MainActivity : ComponentActivity() {
                     sessionSongUri = player.currentMediaItem?.localConfiguration?.uri?.toString()
                     sessionSongTitle = player.mediaMetadata.title?.toString()
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
+                    sessionMixCompatible = player.isPlaying &&
+                        player.playbackParameters.speed == 1f &&
+                        player.playbackParameters.pitch == 1f &&
+                        player.repeatMode == Player.REPEAT_MODE_OFF
+                    sessionMixWarning = if (sessionMixCompatible) "" else
+                        "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
                     recorder.start()
                     recording = true
                     recordingPaused = false
@@ -280,6 +288,8 @@ class MainActivity : ComponentActivity() {
                                         .putString("last_backing_uri", sessionSongUri)
                                         .putString("last_backing_title", sessionSongTitle)
                                         .putLong("last_backing_start_ms", sessionStartPositionMs)
+                                        .putBoolean("last_mix_compatible", sessionMixCompatible)
+                                        .putString("last_mix_warning", sessionMixWarning)
                                         .apply()
                                 }
                                 recordingStatus = if (saved != null) "Rekaman tersimpan di Musik/IING STD Karaoke" else "Rekaman gagal"
@@ -305,6 +315,8 @@ class MainActivity : ComponentActivity() {
                                     recordingStatus = "Rekaman dilanjutkan"
                                 } else {
                                     recorder.pause()
+                                    sessionMixCompatible = false
+                                    sessionMixWarning = "Rekaman sempat dijeda; musik dan vokal tidak dapat disinkronkan otomatis"
                                     recordingPauseStartedAt = android.os.SystemClock.elapsedRealtime()
                                     recordingPaused = true
                                     recordingStatus = "Rekaman dijeda"
@@ -373,12 +385,13 @@ class MainActivity : ComponentActivity() {
                         Text("Vokal: ${(voiceGain * 100).toInt()}%", color = Color.LightGray)
                         Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..1f)
                         val source = recordingPrefs.getString("last_backing_uri", null)
+                        val mixCompatible = recordingPrefs.getBoolean("last_mix_compatible", false)
                         val supportedSource = source?.let {
                             val scheme = Uri.parse(it).scheme
                             scheme == "content" || scheme == "file"
                         } == true
                         Button(
-                            enabled = !mixing && supportedSource,
+                            enabled = !mixing && supportedSource && mixCompatible,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
                                 val backing = source ?: return@Button
@@ -419,6 +432,13 @@ class MainActivity : ComponentActivity() {
                         ) { Text(if (mixing) "⏳ Sedang mixing…" else "🎶 Gabungkan musik + vokal") }
                         if (!supportedSource) {
                             Text("Mixing hanya mendukung lagu lokal yang dapat diakses, bukan streaming.", color = Color.LightGray, fontSize = 12.sp)
+                        } else if (!mixCompatible) {
+                            Text(
+                                recordingPrefs.getString("last_mix_warning", null)
+                                    ?: "Rekaman lama belum memiliki informasi sinkronisasi yang aman",
+                                color = Color.LightGray,
+                                fontSize = 12.sp
+                            )
                         }
                         mixedFile?.let { file ->
                             OutlinedButton(onClick = {
