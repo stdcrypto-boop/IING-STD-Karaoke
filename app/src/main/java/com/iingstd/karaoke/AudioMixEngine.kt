@@ -43,7 +43,8 @@ object AudioMixEngine {
             val startMs = backingStartMs.coerceAtLeast(0L)
             // Reject impossible offsets before multiplication to prevent Long overflow.
             val maxStartMs = (backing.frames / backing.sampleRate) * 1000L +
-                (backing.frames % backing.sampleRate) * 1000L / backing.sampleRate
+                ((backing.frames % backing.sampleRate) * 1000L +
+                    backing.sampleRate - 1L) / backing.sampleRate
             require(startMs < maxStartMs) { "Posisi awal melewati durasi musik" }
             val offset = (startMs / 1000L) * backing.sampleRate +
                 (startMs % 1000L) * backing.sampleRate / 1000L
