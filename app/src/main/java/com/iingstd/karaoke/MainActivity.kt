@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
             var duration by remember { mutableLongStateOf(0L) }
             var speed by remember { mutableFloatStateOf(1f) }
             var lyrics by remember { mutableStateOf(emptyList<Lyric>()) }
+            var lyricOffsetMs by remember { mutableFloatStateOf(0f) }
             val lyricListState = rememberLazyListState()
             var error by remember { mutableStateOf("") }
             fun playSong(song: SavedSong) {
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
                             BufferedReader(InputStreamReader(it)).readText()
                         }.orEmpty()
                         lyrics = parseLrc(content)
+                        lyricOffsetMs = 0f
                         error = if (lyrics.isEmpty()) "Tidak ada timestamp LRC yang valid" else ""
                     } catch (e: Exception) { error = e.message ?: "Gagal membaca lirik" }
                 }
@@ -103,7 +105,7 @@ class MainActivity : ComponentActivity() {
                     delay(250)
                 }
             }
-            val activeLyricIndex = lyrics.indexOfLast { it.timeMs <= position }
+            val activeLyricIndex = lyrics.indexOfLast { it.timeMs <= position + lyricOffsetMs.toLong() }
             LaunchedEffect(activeLyricIndex, lyrics) {
                 if (activeLyricIndex >= 0) lyricListState.animateScrollToItem(activeLyricIndex)
             }
@@ -174,6 +176,12 @@ class MainActivity : ComponentActivity() {
                     Button(onClick = { lyricPicker.launch(arrayOf("text/*", "application/octet-stream")) },
                         modifier = Modifier.fillMaxWidth()) { Text("📝 Buka lirik .LRC") }
                     Spacer(Modifier.height(12.dp))
+                    if (lyrics.isNotEmpty()) {
+                        Text("Sinkronisasi lirik: ${"%.1f".format(lyricOffsetMs / 1000f)} detik", color = Color.LightGray)
+                        Slider(value = lyricOffsetMs, onValueChange = { lyricOffsetMs = it },
+                            valueRange = -5000f..5000f, steps = 19)
+                        TextButton(onClick = { lyricOffsetMs = 0f }) { Text("Reset sinkronisasi") }
+                    }
                     var selectedList by remember { mutableStateOf("Lirik") }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("Lirik", "Disimpan", "Riwayat").forEach { tab ->
