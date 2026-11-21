@@ -42,20 +42,13 @@ object AudioMixEngine {
             require(voice.frames > 0 && voice.frames <= (Int.MAX_VALUE.toLong() - 44L) / 4L) {
                 "Rekaman terlalu panjang untuk WAV"
             }
-            val startMs = backingStartMs.coerceAtLeast(0L)
-            // Reject impossible offsets before multiplication to prevent Long overflow.
-            val maxStartMs = (backing.frames / backing.sampleRate) * 1000L +
-                ((backing.frames % backing.sampleRate) * 1000L +
-                    backing.sampleRate - 1L) / backing.sampleRate
-            require(startMs < maxStartMs) { "Posisi awal melewati durasi musik" }
-            val offset = (startMs / 1000L) * backing.sampleRate +
-                (startMs % 1000L) * backing.sampleRate / 1000L
-            require(offset < backing.frames) { "Posisi awal melewati durasi musik" }
-            // Compare durations without multiplying two potentially large frame counts.
-            val availableFrames = backing.frames - offset
-            val needed = (voice.frames / rate) * backing.sampleRate +
-                ((voice.frames % rate) * backing.sampleRate + rate - 1L) / rate
-            require(needed <= availableFrames) {
+            val offset = AudioTiming.backingOffsetFrames(
+                backingStartMs, backing.sampleRate, backing.frames
+            )
+            val needed = AudioTiming.requiredBackingFrames(
+                voice.frames, rate, backing.sampleRate
+            )
+            require(needed <= backing.frames - offset) {
                 "Musik pengiring berakhir sebelum rekaman vokal selesai"
             }
             destination.parentFile?.mkdirs()
