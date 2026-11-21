@@ -286,7 +286,12 @@ class MainActivity : ComponentActivity() {
                                         loadDataWithBaseURL("https://www.youtube.com/", html, "text/html", "UTF-8", null)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(230.dp)
+                                modifier = Modifier.fillMaxWidth().height(230.dp),
+                                onRelease = { webView ->
+                                    webView.stopLoading()
+                                    webView.loadUrl("about:blank")
+                                    webView.destroy()
+                                }
                             )
                         }
                         TextButton(onClick = {
