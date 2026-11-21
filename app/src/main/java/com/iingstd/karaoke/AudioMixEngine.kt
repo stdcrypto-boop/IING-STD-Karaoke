@@ -33,19 +33,18 @@ object AudioMixEngine {
         require(backingGain in 0f..1f && voiceGain in 0f..1f)
         val backing = decode(context, backingUri)
         val voice = decode(context, voiceUri)
-        require(backing.sampleRate == voice.sampleRate) {
-            "Sample rate berbeda; resampling belum didukung"
-        }
+        // Keep the vocal sample rate as output; resample backing with linear interpolation.
         val rate = voice.sampleRate
         val safeStartMs = backingStartMs.coerceAtLeast(0)
-        val offsetFramesLong = (safeStartMs / 1000) * rate.toLong() +
-            (safeStartMs % 1000) * rate / 1000
+        val offsetFramesLong = (safeStartMs / 1000) * backing.sampleRate.toLong() +
+            (safeStartMs % 1000) * backing.sampleRate / 1000
         require(offsetFramesLong <= Int.MAX_VALUE) { "Posisi musik terlalu besar" }
         val offsetFrames = offsetFramesLong.toInt()
         val voiceFrames = voice.samples.size / voice.channels
         val backingFrames = backing.samples.size / backing.channels
         require(offsetFrames < backingFrames) { "Posisi awal melewati durasi musik" }
-        require(voiceFrames <= backingFrames - offsetFrames) {
+        val requiredBackingFrames = (voiceFrames.toLong() * backing.sampleRate + rate - 1) / rate
+        require(requiredBackingFrames <= backingFrames.toLong() - offsetFrames) {
             "Musik pengiring berakhir sebelum rekaman vokal selesai"
         }
         val frames = voiceFrames
@@ -71,7 +70,9 @@ object AudioMixEngine {
             val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
             for (frame in 0 until frames) {
                 for (channel in 0..1) {
-                    val music = sample(backing, frame + offsetFrames, channel)
+                    val backingFrame = offsetFrames.toDouble() +
+                        frame.toDouble() * backing.sampleRate / rate
+                    val music = interpolatedSample(backing, backingFrame, channel)
                     val vocal = sample(voice, frame, channel)
                     val mixed = (music * backingGain + vocal * voiceGain)
                         .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
@@ -90,6 +91,16 @@ object AudioMixEngine {
     private fun sample(pcm: Pcm, frame: Int, channel: Int): Int {
         val index = frame * pcm.channels + if (pcm.channels == 1) 0 else channel
         return pcm.samples[index].toInt()
+    }
+
+    private fun interpolatedSample(pcm: Pcm, position: Double, channel: Int): Int {
+        val frameCount = pcm.samples.size / pcm.channels
+        val first = position.toInt().coerceIn(0, frameCount - 1)
+        val second = (first + 1).coerceAtMost(frameCount - 1)
+        val fraction = (position - first).coerceIn(0.0, 1.0)
+        val a = sample(pcm, first, channel)
+        val b = sample(pcm, second, channel)
+        return (a + (b - a) * fraction).toInt()
     }
 
     private fun decode(context: Context, uri: Uri): Pcm {
