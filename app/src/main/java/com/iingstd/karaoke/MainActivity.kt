@@ -405,7 +405,8 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 val landscapeStudio = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                Row(Modifier.fillMaxSize().background(Dark)) {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Dark)) {
+                Row(Modifier.fillMaxSize()) {
                     if (landscapeStudio) {
                         Column(
                             Modifier.weight(1.7f).fillMaxHeight().padding(12.dp),
@@ -478,7 +479,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 Column(
-                    Modifier.weight(if (landscapeStudio) 1f else 1.7f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(if (landscapeStudio) 12.dp else 20.dp),
+                    Modifier.weight(if (landscapeStudio) 1f else 1.7f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(top = if (landscapeStudio) 12.dp else 190.dp, start = if (landscapeStudio) 12.dp else 16.dp, end = if (landscapeStudio) 12.dp else 16.dp, bottom = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Open the selected title immediately in a full-screen in-app browser.
@@ -771,59 +772,6 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
-                    }
-                    if (!landscapeStudio) {
-                    localVideoUri?.let { selectedUri ->
-                        Text("🎬 Video karaoke offline", color = Pink)
-                        key(selectedUri) {
-                            AndroidView(
-                                factory = { context ->
-                                    PlayerView(context).apply {
-                                        this.player = player
-                                        useController = true
-                                    }
-                                },
-                                update = { view -> view.player = player },
-                                onRelease = { view -> view.player = null },
-                                modifier = Modifier.fillMaxWidth().height(230.dp)
-                            )
-                        }
-                    }
-                    youtubeVideoId?.let { videoId ->
-                        Text("▶ Video YouTube", color = Pink)
-                        Text("Putar video di bawah. Audio YouTube tidak dapat diekspor atau dicampur dengan rekaman dalam versi ini.",
-                            color = Color.LightGray, fontSize = 12.sp)
-                        key(videoId) {
-                            AndroidView(
-                                factory = { context ->
-                                    WebView(context).apply {
-                                        settings.javaScriptEnabled = true
-                                        settings.domStorageEnabled = true
-                                        webChromeClient = WebChromeClient()
-                                        webViewClient = WebViewClient()
-                                        // Load the official YouTube embed as the top-level page.
-                                        // The previous nested youtube-nocookie iframe returned
-                                        // playback error 152-4 on some Android WebViews.
-                                        settings.mediaPlaybackRequiresUserGesture = true
-                                        settings.loadsImagesAutomatically = true
-                                        loadUrl("https://www.youtube.com/embed/$videoId?playsinline=1&rel=0")
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(230.dp),
-                                onRelease = { webView ->
-                                    webView.stopLoading()
-                                    webView.loadUrl("about:blank")
-                                    webView.destroy()
-                                }
-                            )
-                        }
-                        TextButton(onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId"))
-                            runCatching { startActivity(intent) }.onFailure {
-                                error = "Tidak dapat membuka YouTube: " + (it.message ?: "aplikasi tidak tersedia")
-                            }
-                        }) { Text("Buka di aplikasi YouTube jika video tidak bisa diputar") }
-                    }
                     }
                     Spacer(Modifier.height(12.dp))
                     currentSong?.let { song ->
@@ -1331,6 +1279,74 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                }
+                if (!landscapeStudio) {
+                    Column(
+                        Modifier.fillMaxWidth().height(184.dp).background(Dark).padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("IING STD • Karaoke", color = Pink, fontWeight = FontWeight.Bold)
+                        Column(Modifier.fillMaxWidth().weight(1f).background(BlueGreySurface, RoundedCornerShape(12.dp)).padding(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    localVideoUri?.let { selectedUri ->
+                        Text("🎬 Video karaoke offline", color = Pink)
+                        key(selectedUri) {
+                            AndroidView(
+                                factory = { context ->
+                                    PlayerView(context).apply {
+                                        this.player = player
+                                        useController = true
+                                    }
+                                },
+                                update = { view -> view.player = player },
+                                onRelease = { view -> view.player = null },
+                                modifier = Modifier.fillMaxWidth().height(150.dp)
+                            )
+                        }
+                    }
+                    youtubeVideoId?.let { videoId ->
+                        Text("▶ Video YouTube", color = Pink)
+                        Text("Putar video di bawah. Audio YouTube tidak dapat diekspor atau dicampur dengan rekaman dalam versi ini.",
+                            color = Color.LightGray, fontSize = 12.sp)
+                        key(videoId) {
+                            AndroidView(
+                                factory = { context ->
+                                    WebView(context).apply {
+                                        settings.javaScriptEnabled = true
+                                        settings.domStorageEnabled = true
+                                        webChromeClient = WebChromeClient()
+                                        webViewClient = WebViewClient()
+                                        // Load the official YouTube embed as the top-level page.
+                                        // The previous nested youtube-nocookie iframe returned
+                                        // playback error 152-4 on some Android WebViews.
+                                        settings.mediaPlaybackRequiresUserGesture = true
+                                        settings.loadsImagesAutomatically = true
+                                        loadUrl("https://www.youtube.com/embed/$videoId?playsinline=1&rel=0")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(150.dp),
+                                onRelease = { webView ->
+                                    webView.stopLoading()
+                                    webView.loadUrl("about:blank")
+                                    webView.destroy()
+                                }
+                            )
+                        }
+                        TextButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId"))
+                            runCatching { startActivity(intent) }.onFailure {
+                                error = "Tidak dapat membuka YouTube: " + (it.message ?: "aplikasi tidak tersedia")
+                            }
+                        }) { Text("Buka di aplikasi YouTube jika video tidak bisa diputar") }
+                    }
+
+                            if (localVideoUri == null && youtubeVideoId == null) {
+                                Text(track, color = Color.White, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                                Text("Layar lagu tetap terlihat", color = Color.LightGray, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
                 }
                 }
             }
