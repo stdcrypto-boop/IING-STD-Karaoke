@@ -64,7 +64,7 @@ class VoiceRecorder(private val context: Context) {
 
     fun start(preferExternalMic: Boolean = false): Uri {
         if (wiredMonitoringEnabled) {
-            val uri = wiredRecorder.start(wiredMonitorVolume)
+            val uri = wiredRecorder.start(wiredMonitorVolume, microphoneSource)
             wiredSession = true
             paused = false
             return uri
