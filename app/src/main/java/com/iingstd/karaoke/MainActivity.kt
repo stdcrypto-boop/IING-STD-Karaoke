@@ -1056,6 +1056,9 @@ class MainActivity : ComponentActivity() {
                                                     destination,
                                                     selectedMusicGain,
                                                     selectedVoiceGain,
+                                                    smoothVocal = false,
+                                                    vocalClarity = 0.15f,
+                                                    naturalStudio = true,
                                                     musicDelayMs = selectedAutoDelayMs + selectedSyncMs
                                                 )
                                             } catch (e: Exception) {
