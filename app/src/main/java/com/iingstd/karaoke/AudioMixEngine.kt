@@ -112,9 +112,13 @@ object AudioMixEngine {
                                 val voiceSample = vocalProcessor[channel].process(
                                     vocal.sample(frame, channel).toDouble() / 32768.0
                                 )
-                                val combined = musicProcessor[channel].process(musicSample / 32768.0) * balancedMusicGain +
-                                    voiceSample * effectiveVoiceGain
-                                val mixed = (softLimit(combined) * fade * 32767.0)
+                                // Reserve headroom BEFORE combining tracks. The old nonlinear
+                                // limiter altered the vocal and backing on every loud beat,
+                                // making the mix sound boxy and pumping.
+                                val musicBus = musicProcessor[channel].process(musicSample / 32768.0) * balancedMusicGain
+                                val vocalBus = voiceSample * effectiveVoiceGain
+                                val combined = (musicBus + vocalBus) * (if (naturalStudio) 0.78 else 0.90)
+                                val mixed = ((if (naturalStudio) combined.coerceIn(-0.98, 0.98) else softLimit(combined)) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
                                     output.write(block.array(), 0, block.position())
