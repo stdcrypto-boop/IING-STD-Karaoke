@@ -115,10 +115,23 @@ class VoiceRecorder(private val context: Context) {
                     microphoneSource == "headset" ||
                     microphoneSource == "usb" ||
                     (microphoneSource == "auto" && hasAnalogOrUsbInput)
-                r.setAudioSource(
-                    if (externalCapture) MediaRecorder.AudioSource.MIC
-                    else MediaRecorder.AudioSource.VOICE_COMMUNICATION
-                )
+                // Prefer Android's unprocessed capture path for external soundcards.
+                // VOICE_COMMUNICATION can impose echo cancellation, gating and
+                // time-varying gain that make a clean LIVE OTG signal warble.
+                // Only request UNPROCESSED when the device explicitly supports it.
+                val unprocessedSupported = Build.VERSION.SDK_INT >= 24 &&
+                    audioManager.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
+                val source = when {
+                    externalCapture && unprocessedSupported -> MediaRecorder.AudioSource.UNPROCESSED
+                    externalCapture -> MediaRecorder.AudioSource.MIC
+                    else -> MediaRecorder.AudioSource.VOICE_COMMUNICATION
+                }
+                r.setAudioSource(source)
+                if (externalCapture) {
+                    routeNotice = if (unprocessedSupported)
+                        "Mode input RAW Android aktif (tanpa pemrosesan komunikasi). "
+                    else "Input MIC standar: Android tidak mendukung sumber RAW. "
+                }
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 r.setAudioEncodingBitRate(192000)
