@@ -301,6 +301,32 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
+                    Text("⭐ Daftar lagu dangdut pilihan", color = Pink, fontWeight = FontWeight.Bold)
+                    Text("Judul favorit untuk pencarian karaoke online. Belum termasuk instrumental offline.",
+                        color = Color.LightGray, fontSize = 12.sp)
+                    val requestedSongs = listOf(
+                        "Lagi-Lagi Cinta", "Modern", "Primadona Desa",
+                        "Jangan Pura-Pura", "Cinta Daun Keladi",
+                        "Sama Jahatnya", "Malam — Rita Sugiarto"
+                    )
+                    var requestedSongSearch by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = requestedSongSearch,
+                        onValueChange = { requestedSongSearch = it },
+                        label = { Text("Cari judul favorit") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Column(Modifier.fillMaxWidth().heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                        requestedSongs.filter {
+                            it.contains(requestedSongSearch.trim(), ignoreCase = true)
+                        }.forEach { songTitle ->
+                            TextButton(onClick = {
+                                onlineSearch = songTitle
+                                mode = "Online"
+                            }) { Text("🔎 " + songTitle) }
+                        }
+                    }
                     Text("🎶 Katalog penyanyi dangdut & Minang", color = Pink, fontWeight = FontWeight.Bold)
                     var artistSearch by remember { mutableStateOf("") }
                     OutlinedTextField(
