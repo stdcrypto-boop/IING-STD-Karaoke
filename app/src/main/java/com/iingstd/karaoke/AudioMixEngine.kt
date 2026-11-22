@@ -266,11 +266,16 @@ object AudioMixEngine {
 
     /** Subsonic filter removes DC and very-low-frequency thumps, preserving audible bass. */
     private class MusicProcessor(sampleRate: Int) {
-        private val alpha = kotlin.math.exp(-2.0 * Math.PI * 28.0 / sampleRate)
-        private var low = 0.0
+        // Remove infrabass and tame low-mid rumble without distorting the backing.
+        private val subAlpha = kotlin.math.exp(-2.0 * Math.PI * 32.0 / sampleRate)
+        private val bassAlpha = kotlin.math.exp(-2.0 * Math.PI * 170.0 / sampleRate)
+        private var sub = 0.0
+        private var bass = 0.0
         fun process(sample: Double): Double {
-            low = (1.0 - alpha) * sample + alpha * low
-            return sample - low
+            sub = (1.0 - subAlpha) * sample + subAlpha * sub
+            val clean = sample - sub
+            bass = (1.0 - bassAlpha) * clean + bassAlpha * bass
+            return clean - 0.12 * bass
         }
     }
 
