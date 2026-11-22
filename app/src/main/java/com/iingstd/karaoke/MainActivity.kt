@@ -198,6 +198,7 @@ class MainActivity : ComponentActivity() {
             var volume by remember { mutableFloatStateOf(1f) }
             var repeatOne by remember { mutableStateOf(false) }
             var smoothVocal by remember { mutableStateOf(true) }
+            var vocalClarity by remember { mutableFloatStateOf(0.5f) }
             var error by remember { mutableStateOf("") }
             var showPlaybackOptions by remember { mutableStateOf(false) }
             var showMicOptions by remember { mutableStateOf(false) }
@@ -775,7 +776,7 @@ class MainActivity : ComponentActivity() {
                                                 try {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
-                                                        destination, selectedMusicGain, selectedVoiceGain, smoothVocal
+                                                        destination, selectedMusicGain, selectedVoiceGain, smoothVocal, vocalClarity
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
@@ -1006,6 +1007,11 @@ class MainActivity : ComponentActivity() {
                         Switch(checked = smoothVocal, onCheckedChange = { smoothVocal = it },
                             enabled = !recording && !mixing)
                     }
+                    Text("✨ Treble & kejernihan vokal: ${(vocalClarity * 100).toInt()}%", color = Pink)
+                    Slider(value = vocalClarity, onValueChange = { vocalClarity = it },
+                        valueRange = 0f..1f, enabled = !recording && !mixing)
+                    Text("Menambah kejelasan vokal saat mixing offline. Tidak mengubah suara langsung di speaker.",
+                        color = Color.LightGray, fontSize = 12.sp)
                     Text("Preset diterapkan saat hasil musik + vokal digabung otomatis. Musik dibersihkan dari getaran sangat rendah tanpa menghilangkan bass.",
                         color = Color.LightGray, fontSize = 12.sp)
                     var selectedList by remember { mutableStateOf("Disimpan") }
