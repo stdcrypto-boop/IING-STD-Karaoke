@@ -894,7 +894,7 @@ class MainActivity : ComponentActivity() {
                                                         this@MainActivity, backing, saved, backingStart,
                                                         destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity,
                                                         studioNaturalVocal,
-                                                        autoMusicDelayMs
+                                                        autoMusicDelayMs + syncAdjustmentMs.toLong()
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
