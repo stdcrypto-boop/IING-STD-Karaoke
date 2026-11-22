@@ -153,6 +153,7 @@ class MainActivity : ComponentActivity() {
             var currentSong by remember { mutableStateOf<SavedSong?>(null) }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
+            var streamTitle by remember { mutableStateOf("") }
             var onlineSearch by remember { mutableStateOf("") }
             var internalSearchUrl by remember { mutableStateOf<String?>(null) }
             var internalBrowser by remember { mutableStateOf<WebView?>(null) }
@@ -605,6 +606,9 @@ class MainActivity : ComponentActivity() {
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://carf-coder.github.io/keynata-commons/")))
                             }.onFailure { error = "Gagal membuka katalog: " + (it.message ?: "browser tidak tersedia") }
                         }) { Text("🌐 Jelajahi musik karaoke CC0 (Keynata Commons)") }
+                        OutlinedTextField(value = streamTitle, onValueChange = { streamTitle = it },
+                            label = { Text("Nama lagu streaming (opsional)") },
+                            singleLine = true, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link streaming MP3/MP4 langsung (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -635,7 +639,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else {
                                 try {
-                                    playSong(SavedSong(parsed.lastPathSegment ?: "Streaming online", link, true, System.currentTimeMillis()))
+                                    playSong(SavedSong(streamTitle.trim().ifBlank { parsed.lastPathSegment ?: "Streaming online" }, link, true, System.currentTimeMillis()))
                                 } catch (e: Exception) { error = e.message ?: "Streaming gagal" }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("▶ Putar streaming") }
