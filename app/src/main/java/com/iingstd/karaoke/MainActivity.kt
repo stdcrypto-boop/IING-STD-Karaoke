@@ -51,9 +51,9 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 private val Pink = Color(0xFFFF5EAD)
-private val Dark = Color(0xFF263C50)
-private val BlueGreySurface = Color(0xFF344D63)
-private val BlueGreyButton = Color(0xFF405C73)
+private val Dark = Color(0xFF142333)
+private val BlueGreySurface = Color(0xFF243A4F)
+private val BlueGreyButton = Color(0xFF334C65)
 
 class MainActivity : ComponentActivity() {
     private var incomingYouTubeLink by mutableStateOf<String?>(null)
@@ -225,6 +225,8 @@ class MainActivity : ComponentActivity() {
             var showPlaybackOptions by remember { mutableStateOf(false) }
             var showMicOptions by remember { mutableStateOf(false) }
             var showMixOptions by remember { mutableStateOf(false) }
+            var smartAudioEnabled by remember { mutableStateOf(true) }
+            var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
                 wiredMonitor.stop()
                 monitorEnabled = false
@@ -267,6 +269,7 @@ class MainActivity : ComponentActivity() {
                             it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
                     }
                     recordingOnPhone = !hasExternalInput && !hasWiredOutput
+                    sessionExternalAudio = hasExternalInput
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
                     player.volume = if (microphoneSource == "live") volume * liveMusicLevel else if (recordingOnPhone) volume * phoneSpeakerLevel else volume
@@ -293,7 +296,9 @@ class MainActivity : ComponentActivity() {
                         sessionMixCompatible = false
                         sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
                     }
-                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor
+                    // External soundcards often have zero-latency direct monitoring.
+                    // Smart mode avoids a second, delayed monitoring signal by default.
+                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && !(smartAudioEnabled && hasExternalInput)
                     recorder.wiredMonitorVolume = monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
@@ -872,6 +877,12 @@ class MainActivity : ComponentActivity() {
                     if (microphoneSource == "live") {
                         Text("⚠️ Mode LIVE: monitoring vokal melalui soundcard, bukan aplikasi. Matikan fitur suara balik agar tidak delay atau kresek.", color = Pink, fontSize = 12.sp)
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = smartAudioEnabled, onCheckedChange = { smartAudioEnabled = it }, enabled = !recording)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Smart Audio otomatis", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Text("Aktif: input eksternal memakai mixing bersih tanpa EQ/reverb aplikasi dan suara balik tambahan dimatikan untuk mencegah gema ganda. Efek fisik soundcard tidak dapat dimatikan aplikasi.", color = Color.LightGray, fontSize = 12.sp)
                     val audioInputs = (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
                         .getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
                     val detectedUsbCard = audioInputs.any {
@@ -1007,8 +1018,10 @@ class MainActivity : ComponentActivity() {
                                                 try {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
-                                                        destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity,
-                                                        studioNaturalVocal,
+                                                        destination, selectedMusicGain, selectedVoiceGain,
+                                                        if (smartAudioEnabled && sessionExternalAudio) false else if (studioNaturalVocal) false else smoothVocal,
+                                                        if (smartAudioEnabled && sessionExternalAudio) 0f else if (studioNaturalVocal) 0.15f else vocalClarity,
+                                                        if (smartAudioEnabled && sessionExternalAudio) false else studioNaturalVocal,
                                                         autoMusicDelayMs + syncAdjustmentMs.toLong()
                                                     )
                                                 } catch (e: Exception) {
@@ -1176,8 +1189,8 @@ class MainActivity : ComponentActivity() {
                                                     selectedMusicGain,
                                                     selectedVoiceGain,
                                                     smoothVocal = false,
-                                                    vocalClarity = 0.15f,
-                                                    naturalStudio = true,
+                                                    vocalClarity = if (smartAudioEnabled && sessionExternalAudio) 0f else 0.15f,
+                                                    naturalStudio = !(smartAudioEnabled && sessionExternalAudio),
                                                     musicDelayMs = selectedAutoDelayMs + selectedSyncMs
                                                 )
                                             } catch (e: Exception) {
