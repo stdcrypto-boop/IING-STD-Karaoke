@@ -1022,7 +1022,8 @@ class MainActivity : ComponentActivity() {
                                                         if (smartAudioEnabled && sessionExternalAudio) false else if (studioNaturalVocal) false else smoothVocal,
                                                         if (smartAudioEnabled && sessionExternalAudio) 0f else if (studioNaturalVocal) 0.15f else vocalClarity,
                                                         if (smartAudioEnabled && sessionExternalAudio) false else studioNaturalVocal,
-                                                        autoMusicDelayMs + syncAdjustmentMs.toLong()
+                                                        autoMusicDelayMs + syncAdjustmentMs.toLong(),
+                                                        cleanExternal = smartAudioEnabled && sessionExternalAudio
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
@@ -1191,7 +1192,8 @@ class MainActivity : ComponentActivity() {
                                                     smoothVocal = false,
                                                     vocalClarity = if (smartAudioEnabled && sessionExternalAudio) 0f else 0.15f,
                                                     naturalStudio = !(smartAudioEnabled && sessionExternalAudio),
-                                                    musicDelayMs = selectedAutoDelayMs + selectedSyncMs
+                                                    musicDelayMs = selectedAutoDelayMs + selectedSyncMs,
+                                                    cleanExternal = smartAudioEnabled && sessionExternalAudio
                                                 )
                                             } catch (e: Exception) {
                                                 destination.delete()
