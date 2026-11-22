@@ -1007,10 +1007,28 @@ class MainActivity : ComponentActivity() {
                         Switch(checked = smoothVocal, onCheckedChange = { smoothVocal = it },
                             enabled = !recording && !mixing)
                     }
+                    Text("🎛 Karakter vokal", color = Pink, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Natural" to 0.15f, "Seimbang" to 0.50f, "Terang" to 0.75f).forEach { (label, level) ->
+                            OutlinedButton(
+                                onClick = { vocalClarity = level },
+                                enabled = !recording && !mixing,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (kotlin.math.abs(vocalClarity - level) < 0.01f) BlueGreyButton else Color.Transparent
+                                )
+                            ) { Text(label, fontSize = 11.sp) }
+                        }
+                    }
                     Text("✨ Treble & kejernihan vokal: ${(vocalClarity * 100).toInt()}%", color = Pink)
                     Slider(value = vocalClarity, onValueChange = { vocalClarity = it },
                         valueRange = 0f..1f, enabled = !recording && !mixing)
-                    Text("Menambah kejelasan vokal saat mixing offline. Tidak mengubah suara langsung di speaker.",
+                    Text("EQ treble, presence, dan pengurangan low-mid halus pada hasil mixing offline. Tidak mengubah suara langsung di speaker.",
                         color = Color.LightGray, fontSize = 12.sp)
                     Text("Preset diterapkan saat hasil musik + vokal digabung otomatis. Musik dibersihkan dari getaran sangat rendah tanpa menghilangkan bass.",
                         color = Color.LightGray, fontSize = 12.sp)
