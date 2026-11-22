@@ -201,6 +201,8 @@ class MainActivity : ComponentActivity() {
             var repeatOne by remember { mutableStateOf(false) }
             var smoothVocal by remember { mutableStateOf(true) }
             var vocalClarity by remember { mutableFloatStateOf(0.5f) }
+            var phoneSpeakerLevel by remember { mutableFloatStateOf(0.30f) }
+            var recordingOnPhone by remember { mutableStateOf(false) }
             var error by remember { mutableStateOf("") }
             var showPlaybackOptions by remember { mutableStateOf(false) }
             var showMicOptions by remember { mutableStateOf(false) }
@@ -213,7 +215,7 @@ class MainActivity : ComponentActivity() {
                     }
                     val song = currentSong
                     if (song == null || (song.online && Uri.parse(song.uri).scheme != "https")) {
-                        recordingStatus = "Pilih MP3/MP4 offline atau tautan HTTPS langsung yang mengizinkan rekaman."
+                        recordingStatus = "Pilih lagu MP3/MP4 offline terlebih dahulu."
                         return
                     }
                     // Restore the selected karaoke song after previewing vocal/mix output.
@@ -239,7 +241,8 @@ class MainActivity : ComponentActivity() {
                         it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
                         it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     }
-                    player.volume = if (hasExternalInput) volume else (volume * 0.30f)
+                    recordingOnPhone = !hasExternalInput
+                    player.volume = if (hasExternalInput) volume else (volume * phoneSpeakerLevel)
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -734,6 +737,9 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     }
+                    Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
+                    Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
+                    Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Level mikrofon saat merekam", color = Pink)
                     LinearProgressIndicator(
                         progress = { microphoneLevel },
@@ -791,8 +797,10 @@ class MainActivity : ComponentActivity() {
                                 if (saved != null && sessionMixCompatible && backing != null &&
                                     (backing.scheme == "content" || backing.scheme == "file" || backing.scheme == "https")) {
                                     val backingStart = sessionStartPositionMs
-                                    val selectedMusicGain = 0.75f
-                                    val selectedVoiceGain = 0.95f
+                                    // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
+                                    // It cannot fully remove speaker bleed already in the mic signal.
+                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else 0.75f
+                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else 0.95f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
