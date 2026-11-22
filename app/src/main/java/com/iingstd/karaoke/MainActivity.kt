@@ -304,11 +304,9 @@ class MainActivity : ComponentActivity() {
                     Text("⭐ Daftar lagu dangdut pilihan", color = Pink, fontWeight = FontWeight.Bold)
                     Text("Judul favorit untuk pencarian karaoke online. Belum termasuk instrumental offline.",
                         color = Color.LightGray, fontSize = 12.sp)
-                    val requestedSongs = listOf(
-                        "Lagi-Lagi Cinta", "Modern", "Primadona Desa",
-                        "Jangan Pura-Pura", "Cinta Daun Keladi",
-                        "Sama Jahatnya", "Malam — Rita Sugiarto"
-                    )
+                    val requestedSongs = KaraokeWishlist.titles
+                    Text("${requestedSongs.size} judul terdaftar • instrumental belum tersedia",
+                        color = Color.LightGray, fontSize = 12.sp)
                     var requestedSongSearch by remember { mutableStateOf("") }
                     OutlinedTextField(
                         value = requestedSongSearch,
