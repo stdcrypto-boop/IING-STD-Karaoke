@@ -77,7 +77,15 @@ class WiredVocalMonitor(private val context: Context) {
                         if (n <= 0) break
                         val factor = gain
                         for (i in 0 until n) samples[i] = (samples[i] * factor).toInt().coerceIn(-32768, 32767).toShort()
-                        if (track.write(samples, 0, n) < 0) break
+                        // AudioTrack may accept fewer samples than requested. Dropping
+                        // the remainder creates audible gaps and crackling on busy phones.
+                        var written = 0
+                        while (written < n && active.get()) {
+                            val count = track.write(samples, written, n - written, AudioTrack.WRITE_BLOCKING)
+                            if (count <= 0) break
+                            written += count
+                        }
+                        if (written < n) break
                     }
                 } catch (_: Exception) {
                 } finally {
