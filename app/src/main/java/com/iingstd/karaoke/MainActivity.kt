@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
             DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
             var monitorEnabled by remember { mutableStateOf(false) }
             var monitorVolume by remember { mutableFloatStateOf(0.5f) }
+            var recordWithWiredMonitor by remember { mutableStateOf(false) }
             var recording by remember { mutableStateOf(false) }
             var recordingPaused by remember { mutableStateOf(false) }
             var microphoneLevel by remember { mutableFloatStateOf(0f) }
@@ -258,6 +259,8 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
+                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor
+                    recorder.wiredMonitorVolume = monitorVolume
                     recorder.start()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
@@ -746,6 +749,13 @@ class MainActivity : ComponentActivity() {
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("🎧 Rekam + dengar vokal bersamaan (headphone kabel)", color = Pink, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (recordWithWiredMonitor) "Aktif: rekaman WAV + suara balik" else "Nonaktif: rekaman standar", color = Color.LightGray, fontSize = 12.sp)
+                    }
+                    Text("Sambungkan headphone kabel sebelum merekam. Mikrofon direkam satu kali dan dipantau melalui headphone. Monitoring akan berhenti saat rekaman selesai.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎧 Suara balik vokal headphone kabel (uji monitoring)", color = Pink, fontWeight = FontWeight.Bold)
                     Text("Mode uji: dengarkan mikrofon melalui headphone kabel. Matikan sebelum merekam; monitoring dan rekaman bersamaan belum tersedia.", color = Color.LightGray, fontSize = 12.sp)
                     Slider(value = monitorVolume, onValueChange = { monitorVolume = it; wiredMonitor.setVolume(it) }, enabled = !recording)
