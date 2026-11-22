@@ -21,15 +21,20 @@ import java.util.Locale
  */
 class VoiceRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
+    private val wiredRecorder = WiredCaptureRecorder(context)
+    private var wiredSession = false
+    var wiredMonitoringEnabled = false
+    var wiredMonitorVolume = 0.5f
     private var output: Uri? = null
     private var descriptor: ParcelFileDescriptor? = null
     private var legacyFile: File? = null
 
     private var paused = false
-    val isRecording: Boolean get() = recorder != null
+    val isRecording: Boolean get() = recorder != null || wiredSession
     val isPaused: Boolean get() = paused
     /** Read-only microphone peak level (0..1). Does not play mic audio to speakers. */
     fun peakLevel(): Float {
+        if (wiredSession) return wiredRecorder.peakLevel()
         val active = recorder ?: return 0f
         if (paused) return 0f
         return runCatching {
@@ -39,6 +44,7 @@ class VoiceRecorder(private val context: Context) {
 
 
     fun pause() {
+        if (wiredSession) { wiredRecorder.pause(); paused = true; return }
         check(!paused) { "Recording already paused" }
         val active = recorder ?: error("No recording in progress")
         active.pause()
@@ -46,6 +52,7 @@ class VoiceRecorder(private val context: Context) {
     }
 
     fun resume() {
+        if (wiredSession) { wiredRecorder.resume(); paused = false; return }
         check(paused) { "Recording is not paused" }
         val active = recorder ?: error("No recording in progress")
         active.resume()
@@ -54,6 +61,12 @@ class VoiceRecorder(private val context: Context) {
 
 
     fun start(preferExternalMic: Boolean = false): Uri {
+        if (wiredMonitoringEnabled) {
+            val uri = wiredRecorder.start(wiredMonitorVolume)
+            wiredSession = true
+            paused = false
+            return uri
+        }
         check(recorder == null) { "Recording already in progress" }
         paused = false
         val name = "IING-VOICE-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".m4a"
@@ -142,6 +155,10 @@ class VoiceRecorder(private val context: Context) {
     }
 
     fun stop(): Uri? {
+        if (wiredSession) {
+            val result = try { wiredRecorder.stop() } finally { wiredSession = false; paused = false }
+            return result
+        }
         val active = recorder ?: return null
         val uri = output
         recorder = null
