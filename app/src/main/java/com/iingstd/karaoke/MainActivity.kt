@@ -142,6 +142,7 @@ class MainActivity : ComponentActivity() {
             var musicGain by remember { mutableFloatStateOf(0.65f) }
             var voiceGain by remember { mutableFloatStateOf(1f) }
             var syncAdjustmentMs by remember { mutableFloatStateOf(0f) }
+            var autoMusicDelayMs by remember { mutableLongStateOf(0L) }
             var mixedFile by remember {
                 mutableStateOf(
                     recordingPrefs.getString("last_mix_path", null)?.let(::File)?.takeIf {
@@ -278,8 +279,14 @@ class MainActivity : ComponentActivity() {
                     }
                     recorder.wiredMonitoringEnabled = recordWithWiredMonitor && microphoneSource != "live"
                     recorder.wiredMonitorVolume = monitorVolume
+                    val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
+                    val playbackRequestNs = android.os.SystemClock.elapsedRealtimeNanos()
                     player.play()
+                    // Estimate startup offset using monotonic timestamps. This does not
+                    // measure hardware latency; the manual fine-tuning control remains.
+                    autoMusicDelayMs = ((playbackRequestNs - captureStartNs) / 1_000_000L).coerceIn(0L, 2000L)
+                    recordingPrefs.edit().putLong("last_auto_music_delay_ms", autoMusicDelayMs).apply()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
                     mixStatus = ""
@@ -886,7 +893,8 @@ class MainActivity : ComponentActivity() {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
                                                         destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity,
-                                                        studioNaturalVocal
+                                                        studioNaturalVocal,
+                                                        autoMusicDelayMs
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
@@ -1028,6 +1036,7 @@ class MainActivity : ComponentActivity() {
                                 val selectedMusicGain = musicGain
                                 val selectedVoiceGain = voiceGain
                                 val selectedSyncMs = syncAdjustmentMs.toLong()
+                                val selectedAutoDelayMs = recordingPrefs.getLong("last_auto_music_delay_ms", 0L)
                                 val selectedBackingStartMs = recordingPrefs.getLong("last_backing_start_ms", 0L)
                                 mixing = true
                                 mixStatus = "Memproses audio di perangkat…"
@@ -1042,10 +1051,11 @@ class MainActivity : ComponentActivity() {
                                                     this@MainActivity,
                                                     Uri.parse(backing),
                                                     voice,
-                                                    (selectedBackingStartMs + selectedSyncMs).coerceAtLeast(0L),
+                                                    selectedBackingStartMs.coerceAtLeast(0L),
                                                     destination,
                                                     selectedMusicGain,
-                                                    selectedVoiceGain
+                                                    selectedVoiceGain,
+                                                    musicDelayMs = selectedAutoDelayMs + selectedSyncMs
                                                 )
                                             } catch (e: Exception) {
                                                 destination.delete()
