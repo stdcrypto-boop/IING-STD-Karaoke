@@ -157,6 +157,7 @@ class MainActivity : ComponentActivity() {
             var internalBrowserLoading by remember { mutableStateOf(false) }
             var internalBrowserError by remember { mutableStateOf("") }
             var karaokeVideoId by remember { mutableStateOf<String?>(null) }
+            var karaokePlayerError by remember { mutableStateOf("") }
             BackHandler(enabled = internalSearchUrl != null) {
                 val browser = internalBrowser
                 if (karaokeVideoId != null) karaokeVideoId = null
@@ -303,6 +304,8 @@ class MainActivity : ComponentActivity() {
                         androidx.compose.ui.window.Dialog(
                             onDismissRequest = {
                                 internalSearchUrl = null
+                                karaokeVideoId = null
+                                karaokePlayerError = ""
                                 internalBrowserError = ""
                             },
                             properties = androidx.compose.ui.window.DialogProperties(
@@ -315,6 +318,7 @@ class MainActivity : ComponentActivity() {
                                 Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
                                 karaokeVideoId?.let { selectedId ->
                                     Text("Lirik mengikuti video karaoke yang dipilih. Gunakan video berlabel karaoke + lirik.", color = Color.LightGray, fontSize = 12.sp)
+                                    if (karaokePlayerError.isNotBlank()) Text(karaokePlayerError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
                                     key(selectedId) {
                                         AndroidView(
                                             factory = { context ->
@@ -323,7 +327,26 @@ class MainActivity : ComponentActivity() {
                                                     settings.domStorageEnabled = true
                                                     settings.mediaPlaybackRequiresUserGesture = true
                                                     webChromeClient = WebChromeClient()
-                                                    webViewClient = WebViewClient()
+                                                    webViewClient = object : WebViewClient() {
+                                                        override fun onReceivedError(
+                                                            view: WebView?,
+                                                            request: android.webkit.WebResourceRequest?,
+                                                            error: android.webkit.WebResourceError?
+                                                        ) {
+                                                            if (request?.isForMainFrame == true) {
+                                                                karaokePlayerError = "Pemutar gagal dimuat. Periksa koneksi atau pilih video lain."
+                                                            }
+                                                        }
+                                                        override fun onReceivedHttpError(
+                                                            view: WebView?,
+                                                            request: android.webkit.WebResourceRequest?,
+                                                            errorResponse: android.webkit.WebResourceResponse?
+                                                        ) {
+                                                            if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 0) >= 400) {
+                                                                karaokePlayerError = "Video tidak tersedia untuk pemutar ini. Pilih video lain."
+                                                            }
+                                                        }
+                                                    }
                                                     settings.loadWithOverviewMode = true
                                                     settings.useWideViewPort = true
                                                     loadUrl("https://www.youtube.com/embed/$selectedId?playsinline=1&rel=0")
@@ -346,7 +369,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = {
-                                        if (karaokeVideoId != null) karaokeVideoId = null
+                                        if (karaokeVideoId != null) { karaokeVideoId = null; karaokePlayerError = "" }
                                         else internalBrowser?.let { if (it.canGoBack()) it.goBack() }
                                     }) { Text("← Kembali") }
                                     TextButton(onClick = {
@@ -356,6 +379,7 @@ class MainActivity : ComponentActivity() {
                                     TextButton(onClick = {
                                         internalSearchUrl = null
                                         karaokeVideoId = null
+                                        karaokePlayerError = ""
                                         internalBrowserError = ""
                                     }) { Text("✕ Tutup") }
                                 }
@@ -479,7 +503,8 @@ class MainActivity : ComponentActivity() {
                                 onlineSearch = songTitle
                                 mode = "Online"
                                 karaokeVideoId = null
-                            internalBrowserError = ""
+                                karaokePlayerError = ""
+                                internalBrowserError = ""
                             internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
                                     .appendQueryParameter("search_query", songTitle + " karaoke tanpa vokal minus one lirik").build().toString()
                             }) { Text("🔎 " + songTitle) }
@@ -512,7 +537,8 @@ class MainActivity : ComponentActivity() {
                                 onlineSearch = artist
                                 mode = "Online"
                                 karaokeVideoId = null
-                            internalBrowserError = ""
+                                karaokePlayerError = ""
+                                internalBrowserError = ""
                             internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
                                     .appendQueryParameter("search_query", artist + " karaoke tanpa vokal minus one lirik").build().toString()
                             }) { Text("🎤 " + artist) }
@@ -536,7 +562,8 @@ class MainActivity : ComponentActivity() {
                                 error = "Tulis judul lagu terlebih dahulu"
                             } else {
                                 karaokeVideoId = null
-                            internalBrowserError = ""
+                                karaokePlayerError = ""
+                                internalBrowserError = ""
                             internalSearchUrl = Uri.parse("https://m.youtube.com/results")
                                     .buildUpon().appendQueryParameter("search_query", query + " karaoke tanpa vokal minus one lirik").build().toString()
                                 error = ""
