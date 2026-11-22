@@ -115,12 +115,10 @@ class WiredCaptureRecorder(private val context: Context) {
                                 pcm[i * 2] = (value and 255).toByte()
                                 pcm[i * 2 + 1] = ((value shr 8) and 255).toByte()
                             }
-                            // Keep recording untouched; process monitor signal only.
-                            // Gentle auto-gain with soft limiting, capped to prevent clipping.
-                            val rms = sqrt(sumSquares / n) / 32768.0
-                            val target = (0.13 / maxOf(rms, 0.025)).coerceIn(0.7, 2.0).toFloat()
-                            monitorSmoothGain += (target - monitorSmoothGain) * 0.025f
-                            val effectiveGain = monitorGain * monitorSmoothGain
+                            // Use fixed monitoring gain: the previous per-buffer auto gain
+                            // made quiet/loud syllables pump and sound like a wavering echo.
+                            // Recorded PCM remains unmodified.
+                            val effectiveGain = monitorGain
                             for (i in 0 until n) {
                                 val value = samples[i].toInt() * effectiveGain
                                 listen[i] = (value / (1f + abs(value) / 30000f)).toInt()
