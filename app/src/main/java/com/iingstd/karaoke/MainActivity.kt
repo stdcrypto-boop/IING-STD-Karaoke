@@ -149,8 +149,6 @@ class MainActivity : ComponentActivity() {
             var history by remember { mutableStateOf(library.history()) }
             var favorites by remember { mutableStateOf(library.favorites()) }
             var currentSong by remember { mutableStateOf<SavedSong?>(null) }
-            var originalTrack by remember { mutableStateOf<OfflineKaraoke.Track?>(null) }
-            var preparingOriginal by remember { mutableStateOf(false) }
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
             var onlineSearch by remember { mutableStateOf("") }
@@ -255,7 +253,6 @@ class MainActivity : ComponentActivity() {
             }
             fun playSong(song: SavedSong) {
                 try {
-                    originalTrack = null
                     youtubeVideoId = null
                     localVideoUri = if (!song.online && (song.uri.endsWith(".mp4", true) ||
                         runCatching { contentResolver.getType(Uri.parse(song.uri))?.startsWith("video/") == true }.getOrDefault(false))) song.uri else null
@@ -494,44 +491,9 @@ class MainActivity : ComponentActivity() {
                     }
                     }
                     if (mode == "Offline") {
-                        Text("🎼 Karaoke offline siap nyanyi", color = Pink, fontWeight = FontWeight.Bold)
-                        Text("${OfflineKaraoke.tracks.size} musik instrumental original tersedia tanpa internet. Pilih lagu untuk memutar musik dan melihat lirik.",
+                        Text("🎼 Karaoke offline dari file HP", color = Pink, fontWeight = FontWeight.Bold)
+                        Text("Pilih MP3 atau MP4 karaoke lengkap dari penyimpanan HP. Instrumental percobaan telah dihapus dari daftar.",
                             color = Color.LightGray, fontSize = 12.sp)
-                        OfflineKaraoke.tracks.forEach { song ->
-                            OutlinedButton(
-                                enabled = !preparingOriginal,
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = {
-                                    preparingOriginal = true
-                                    mixScope.launch {
-                                        try {
-                                            val file = withContext(Dispatchers.IO) { OfflineKaraoke.prepare(this@MainActivity, song) }
-                                            val saved = SavedSong(song.title, Uri.fromFile(file).toString(), false, System.currentTimeMillis())
-                                            playSong(saved)
-                                            originalTrack = song
-                                            mode = "Offline"
-                                        } catch (e: Exception) {
-                                            error = "Gagal menyiapkan musik offline: " + (e.message ?: "error")
-                                        } finally {
-                                            preparingOriginal = false
-                                        }
-                                    }
-                                }
-                            ) { Text("▶ " + song.title + " — " + song.style) }
-                        }
-                        if (preparingOriginal) Text("Menyiapkan instrumental pertama kali…", color = Color.LightGray)
-                        originalTrack?.let { song ->
-                            val lineIndex = song.lyrics.indexOfLast { it.atMs <= position }.coerceAtLeast(0)
-                            Text("🎤 Lirik • " + song.title, color = Pink, fontWeight = FontWeight.Bold)
-                            Text(song.lyrics[lineIndex].text, color = Color.White,
-                                fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                            song.lyrics.getOrNull(lineIndex + 1)?.let { next ->
-                                Text(next.text, color = Color.LightGray, textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth())
-                            }
-                        }
-
                         Button(onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) }, modifier = Modifier.fillMaxWidth()) {
                             Text("📁 Pilih MP3 atau video MP4 dari HP")
                         }
