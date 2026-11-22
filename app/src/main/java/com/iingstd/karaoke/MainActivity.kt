@@ -302,7 +302,7 @@ class MainActivity : ComponentActivity() {
                     player.play()
                     // Estimate startup offset using monotonic timestamps. This does not
                     // measure hardware latency; the manual fine-tuning control remains.
-                    autoMusicDelayMs = if (microphoneSource == "live") 253L else ((playbackRequestNs - captureStartNs) / 1_000_000L).coerceIn(0L, 2000L)
+                    autoMusicDelayMs = ((playbackRequestNs - captureStartNs) / 1_000_000L).coerceIn(0L, 2000L)
                     recordingPrefs.edit().putLong("last_auto_music_delay_ms", autoMusicDelayMs).apply()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
@@ -1032,13 +1032,17 @@ class MainActivity : ComponentActivity() {
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Penguatan vokal: ${"%.1f".format(voiceGain)}×", color = Color.LightGray)
                         Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..3f)
-                        Text("Sinkronisasi awal: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (mode LIVE: acuan 253 ms; mode lain: perkiraan waktu mulai)", color = Color.LightGray, fontSize = 12.sp)
+                        Text("Sinkronisasi awal terukur: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (perkiraan waktu mulai, tanpa acuan tetap)", color = Color.LightGray, fontSize = 12.sp)
                         Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms (geser kanan untuk menunda musik)", color = Color.LightGray)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { syncAdjustmentMs = (syncAdjustmentMs - 1f).coerceAtLeast(-500f) }) { Text("−1 ms") }
+                            OutlinedButton(onClick = { syncAdjustmentMs = (syncAdjustmentMs + 1f).coerceAtMost(500f) }) { Text("+1 ms") }
+                            OutlinedButton(onClick = { syncAdjustmentMs = 0f }) { Text("Reset") }
+                        }
                         Slider(
                             value = syncAdjustmentMs,
                             onValueChange = { syncAdjustmentMs = it },
-                            valueRange = -500f..500f,
-                            steps = 99
+                            valueRange = -500f..500f
                         )
                         Text(
                             "Geser ke kanan jika musik terdengar terlalu cepat dibanding vokal. Uji dengan rekaman pendek.",
