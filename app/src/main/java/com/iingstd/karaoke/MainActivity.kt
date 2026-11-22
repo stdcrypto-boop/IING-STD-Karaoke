@@ -583,6 +583,28 @@ class MainActivity : ComponentActivity() {
                             "YouTube memakai pemutar resminya agar tidak terkena Error 153. Untuk streaming di dalam aplikasi, gunakan tautan langsung MP3/MP4 yang diizinkan.",
                             color = Color.LightGray, fontSize = 12.sp
                         )
+                        Text("🎵 Koleksi streaming tersimpan", color = Pink, fontWeight = FontWeight.Bold)
+                        val onlineMatches = history.filter { song ->
+                            song.online && Uri.parse(song.uri).scheme == "https" &&
+                                (onlineSearch.isBlank() || song.title.contains(onlineSearch, ignoreCase = true))
+                        }.distinctBy { it.uri }.take(12)
+                        if (onlineMatches.isEmpty()) {
+                            Text("Belum ada streaming tersimpan. Tambahkan tautan audio HTTPS berizin di bawah. Katalog lagu populer belum tersedia.",
+                                color = Color.LightGray, fontSize = 12.sp)
+                        } else {
+                            onlineMatches.forEach { song ->
+                                OutlinedButton(
+                                    onClick = { playSong(song) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) { Text("▶ " + song.title, maxLines = 2) }
+                            }
+                        }
+                        TextButton(onClick = {
+                            runCatching {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://carf-coder.github.io/keynata-commons/")))
+                            }.onFailure { error = "Gagal membuka katalog: " + (it.message ?: "browser tidak tersedia") }
+                        }) { Text("🌐 Jelajahi musik karaoke CC0 (Keynata Commons)") }
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link streaming MP3/MP4 langsung (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
