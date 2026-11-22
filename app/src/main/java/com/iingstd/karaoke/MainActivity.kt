@@ -106,9 +106,17 @@ class MainActivity : ComponentActivity() {
             var recording by remember { mutableStateOf(false) }
             var recordingPaused by remember { mutableStateOf(false) }
             var microphoneLevel by remember { mutableFloatStateOf(0f) }
+            var inputTooHot by remember { mutableStateOf(false) }
             LaunchedEffect(recording, recordingPaused) {
+                var consecutiveHotPeaks = 0
                 while (recording) {
                     microphoneLevel = if (recordingPaused) 0f else recorder.peakLevel()
+                    // MediaRecorder.maxAmplitude reports the largest peak since the
+                    // previous read. Sustained near-full-scale input indicates a
+                    // likely clipped soundcard/ADC signal, not a mixing issue.
+                    consecutiveHotPeaks = if (!recordingPaused && microphoneLevel >= 0.97f)
+                        (consecutiveHotPeaks + 1).coerceAtMost(10) else 0
+                    if (consecutiveHotPeaks >= 3) inputTooHot = true
                     delay(120)
                 }
                 microphoneLevel = 0f
@@ -289,6 +297,7 @@ class MainActivity : ComponentActivity() {
                     recorder.wiredMonitorVolume = monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
+                    inputTooHot = false
                     val playbackRequestNs = android.os.SystemClock.elapsedRealtimeNanos()
                     player.play()
                     // Estimate startup offset using monotonic timestamps. This does not
@@ -809,6 +818,12 @@ class MainActivity : ComponentActivity() {
                             recordingStatus = if (monitorEnabled) "Monitoring headphone kabel aktif (mode uji)." else "Hubungkan headphone kabel/USB dan periksa izin mikrofon."
                         }
                     }, enabled = !recording, modifier = Modifier.fillMaxWidth()) { Text(if (monitorEnabled) "⏹ Matikan suara balik" else "🎧 Uji suara balik headphone") }
+                    if (inputTooHot) {
+                        Text(
+                            "⚠️ INPUT TERLALU KERAS: kemungkinan distorsi pada rekaman. Turunkan MIC GAIN soundcard sebelum mengulang. Mengurangi volume mixing tidak memperbaiki clipping.",
+                            color = Color(0xFFFFB36B), fontWeight = FontWeight.Bold, fontSize = 12.sp
+                        )
+                    }
                     Text("Level mikrofon saat merekam", color = Pink)
                     LinearProgressIndicator(
                         progress = { microphoneLevel },
@@ -1017,7 +1032,7 @@ class MainActivity : ComponentActivity() {
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Penguatan vokal: ${"%.1f".format(voiceGain)}×", color = Color.LightGray)
                         Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..3f)
-                        Text("Sinkronisasi awal otomatis: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (perkiraan waktu mulai, bukan kalibrasi latensi perangkat)", color = Color.LightGray, fontSize = 12.sp)
+                        Text("Sinkronisasi awal: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (mode LIVE: acuan 253 ms; mode lain: perkiraan waktu mulai)", color = Color.LightGray, fontSize = 12.sp)
                         Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms (geser kanan untuk menunda musik)", color = Color.LightGray)
                         Slider(
                             value = syncAdjustmentMs,
