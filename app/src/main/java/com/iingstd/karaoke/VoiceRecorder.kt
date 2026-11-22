@@ -25,6 +25,8 @@ class VoiceRecorder(private val context: Context) {
     private var wiredSession = false
     var wiredMonitoringEnabled = false
     var wiredMonitorVolume = 0.5f
+    /** auto, usb, headset, or phone */
+    var microphoneSource = "auto"
     private var output: Uri? = null
     private var descriptor: ParcelFileDescriptor? = null
     private var legacyFile: File? = null
@@ -122,13 +124,23 @@ class VoiceRecorder(private val context: Context) {
                 if (Build.VERSION.SDK_INT >= 28) {
                     val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS)
-                    val external = inputs.firstOrNull {
-                        it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
-                            it.type == AudioDeviceInfo.TYPE_USB_HEADSET
-                    } ?: inputs.firstOrNull {
-                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                    val external = when (microphoneSource) {
+                        "usb" -> inputs.firstOrNull {
+                            it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                        }
+                        "headset" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+                        "phone" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+                        else -> inputs.firstOrNull {
+                            it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                        } ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
                     }
-                    if (external != null && r.setPreferredDevice(external)) {
+                    if (microphoneSource != "auto" && external == null) {
+                        error("Sumber mikrofon yang dipilih tidak terdeteksi")
+                    }
+                    if (external != null && !r.setPreferredDevice(external) && microphoneSource != "auto") {
+                        error("Android tidak bisa memilih sumber mikrofon tersebut")
                     }
                     // Without an external input, Android uses the phone mic.
                 }
