@@ -409,7 +409,7 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.fillMaxSize().background(Dark)) {
                     if (!landscapeStudio) {
                         Column(
-                            Modifier.fillMaxWidth().height(204.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+                            Modifier.fillMaxWidth().height((androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.28f).coerceIn(112f, 204f).dp).padding(horizontal = 12.dp, vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text("IING STD • Karaoke", color = Pink, fontWeight = FontWeight.Bold)
