@@ -39,6 +39,9 @@ class WiredVocalMonitor(private val context: Context) {
 
     fun start(): Boolean {
         if (active.get()) return true
+        // A previous monitor may still be releasing its AudioRecord. Do not
+        // open another microphone while that worker is winding down.
+        if (worker?.isAlive == true) return false
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false
         val device = wiredOutput() ?: return false
         val rate = 48000
@@ -98,7 +101,16 @@ class WiredVocalMonitor(private val context: Context) {
     fun isActive() = active.get()
     fun stop() {
         active.set(false)
+        // AudioRecord.read() may be blocking. Stopping it allows the worker to
+        // leave the loop and release the microphone before recording starts.
         runCatching { input?.stop() }
         runCatching { output?.pause() }
+        val previous = worker
+        if (previous != null && previous !== Thread.currentThread()) {
+            runCatching { previous.join(1000) }
+        }
+        // Do not clear the worker reference if teardown has not finished:
+        // start() must reject a second capture until the old worker exits.
+        if (previous?.isAlive == false) worker = null
     }
 }
