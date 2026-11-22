@@ -33,7 +33,7 @@ object AudioMixEngine {
         smoothVocal: Boolean = true,
         vocalClarity: Float = 0.5f
     ): File {
-        require(backingGain in 0f..1f && voiceGain in 0f..1f && vocalClarity in 0f..1f)
+        require(backingGain in 0f..1f && voiceGain in 0f..6f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
         var voiceTemp: File? = null
         var remoteBackingTemp: File? = null
@@ -88,7 +88,9 @@ object AudioMixEngine {
                         val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal, vocalClarity) }
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
                         val balance = estimateBalance(music, vocal, backing, voice, offset)
-                        val balancedMusicGain = (backingGain * balance).coerceIn(0.20, 0.90)
+                        val balancedMusicGain = (backingGain * balance).coerceIn(0.10, 0.90)
+                        val vocalBoost = estimateVocalBoost(vocal, voice)
+                        val effectiveVoiceGain = voiceGain * vocalBoost
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + frame.toDouble() * backing.sampleRate / rate
@@ -110,7 +112,7 @@ object AudioMixEngine {
                                     vocal.sample(frame, channel).toDouble() / 32768.0
                                 )
                                 val combined = musicProcessor[channel].process(musicSample / 32768.0) * balancedMusicGain +
-                                    voiceSample * voiceGain
+                                    voiceSample * effectiveVoiceGain
                                 val mixed = (softLimit(combined) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
@@ -165,6 +167,29 @@ object AudioMixEngine {
         } finally {
             connection.disconnect()
         }
+    }
+
+    /**
+     * Conservative gain correction for weak external microphones.
+     * Uses active peaks (not silence) and caps boost to avoid amplifying
+     * noise excessively. Physical soundcard mic gain still matters.
+     */
+    private fun estimateVocalBoost(vocal: PcmFrameReader, voice: Pcm): Double {
+        val step = (voice.sampleRate / 100).coerceAtLeast(1).toLong()
+        var energy = 0.0
+        var count = 0
+        var frame = 0L
+        while (frame < voice.frames) {
+            val sample = vocal.sample(frame, 0) / 32768.0
+            if (kotlin.math.abs(sample) >= 0.008) {
+                energy += sample * sample
+                count++
+            }
+            frame += step
+        }
+        if (count < 20) return 1.0
+        val rms = kotlin.math.sqrt(energy / count)
+        return (0.16 / rms.coerceAtLeast(0.001)).coerceIn(1.0, 3.5)
     }
 
     /** Estimate backing loudness against active singing, not silent pauses. */
