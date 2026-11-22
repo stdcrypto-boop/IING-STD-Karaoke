@@ -27,6 +27,8 @@ class VoiceRecorder(private val context: Context) {
     var wiredMonitorVolume = 0.5f
     /** auto, usb, headset, or phone */
     var microphoneSource = "auto"
+    var routeNotice: String = ""
+        private set
     private var output: Uri? = null
     private var descriptor: ParcelFileDescriptor? = null
     private var legacyFile: File? = null
@@ -63,6 +65,7 @@ class VoiceRecorder(private val context: Context) {
 
 
     fun start(preferExternalMic: Boolean = false): Uri {
+        routeNotice = ""
         if (wiredMonitoringEnabled) {
             val uri = wiredRecorder.start(wiredMonitorVolume, microphoneSource)
             wiredSession = true
@@ -140,15 +143,28 @@ class VoiceRecorder(private val context: Context) {
                                 it.type == AudioDeviceInfo.TYPE_USB_HEADSET
                         } ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
                     }
-                    if (microphoneSource != "auto" && external == null) {
-                        error("Sumber mikrofon yang dipilih tidak terdeteksi")
+                    if (external == null && microphoneSource != "auto") {
+                        routeNotice = "Input pilihan tidak dilaporkan Android. Rekaman memakai jalur input default; kemungkinan mikrofon HP. Periksa indikator vokal."
+                    } else if (external != null && !r.setPreferredDevice(external)) {
+                        routeNotice = "Android menolak pemilihan input. Rekaman memakai jalur default; periksa apakah vokal terdeteksi."
                     }
-                    if (external != null && !r.setPreferredDevice(external) && microphoneSource != "auto") {
-                        error("Android tidak bisa memilih sumber mikrofon tersebut")
-                    }
-                    // Without an external input, Android uses the phone mic.
+                    // Preferred routing is advisory; getRoutedDevice after start
+                    // can differ, especially with analog adapters and Bluetooth.
                 }
                 r.start()
+                if (Build.VERSION.SDK_INT >= 28) {
+                    val routed = r.routedDevice
+                    if (routed != null) {
+                        val label = when (routed.type) {
+                            AudioDeviceInfo.TYPE_BUILTIN_MIC -> "Mikrofon HP"
+                            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Mikrofon headset / LIVE analog"
+                            AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET -> "Input USB / soundcard"
+                            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Mikrofon Bluetooth"
+                            else -> "Input Android (tipe ${routed.type})"
+                        }
+                        routeNotice = "Input aktif: $label. " + routeNotice
+                    }
+                }
                 // Android may override a preferred route; never discard a valid
                 // take solely because a peripheral was unplugged mid-start.
             }
