@@ -33,7 +33,8 @@ object AudioMixEngine {
         smoothVocal: Boolean = true,
         vocalClarity: Float = 0.5f,
         naturalStudio: Boolean = false,
-        musicDelayMs: Long = 0L
+        musicDelayMs: Long = 0L,
+        cleanExternal: Boolean = false
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..6f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
@@ -89,9 +90,9 @@ object AudioMixEngine {
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
                         val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal, vocalClarity, naturalStudio) }
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
-                        val balance = if (naturalStudio) 1.0 else estimateBalance(music, vocal, backing, voice, offset)
+                        val balance = if (naturalStudio || cleanExternal) 1.0 else estimateBalance(music, vocal, backing, voice, offset)
                         val balancedMusicGain = (backingGain * balance).coerceIn(0.0, 0.90)
-                        val vocalBoost = if (naturalStudio) 1.0 else estimateVocalBoost(vocal, voice)
+                        val vocalBoost = if (naturalStudio || cleanExternal) 1.0 else estimateVocalBoost(vocal, voice)
                         val effectiveVoiceGain = voiceGain * vocalBoost
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
@@ -110,16 +111,15 @@ object AudioMixEngine {
                                     val b = music.sample(second, channel)
                                     a + (b - a) * fraction
                                 } else 0.0
-                                val voiceSample = vocalProcessor[channel].process(
-                                    vocal.sample(frame, channel).toDouble() / 32768.0
-                                )
+                                val voiceSample = if (cleanExternal) vocal.sample(frame, channel).toDouble() / 32768.0
+                                else vocalProcessor[channel].process(vocal.sample(frame, channel).toDouble() / 32768.0)
                                 // Reserve headroom BEFORE combining tracks. The old nonlinear
                                 // limiter altered the vocal and backing on every loud beat,
                                 // making the mix sound boxy and pumping.
-                                val musicBus = musicProcessor[channel].process(musicSample / 32768.0) * balancedMusicGain
+                                val musicBus = (if (cleanExternal) musicSample / 32768.0 else musicProcessor[channel].process(musicSample / 32768.0)) * balancedMusicGain
                                 val vocalBus = voiceSample * effectiveVoiceGain
-                                val combined = (musicBus + vocalBus) * (if (naturalStudio) 0.78 else 0.90)
-                                val mixed = ((if (naturalStudio) combined.coerceIn(-0.98, 0.98) else softLimit(combined)) * fade * 32767.0)
+                                val combined = (musicBus + vocalBus) * (if (naturalStudio || cleanExternal) 0.78 else 0.90)
+                                val mixed = ((if (naturalStudio || cleanExternal) combined.coerceIn(-0.98, 0.98) else softLimit(combined)) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
                                     output.write(block.array(), 0, block.position())
