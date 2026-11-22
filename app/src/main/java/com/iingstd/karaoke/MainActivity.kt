@@ -208,6 +208,7 @@ class MainActivity : ComponentActivity() {
             var volume by remember { mutableFloatStateOf(1f) }
             var repeatOne by remember { mutableStateOf(false) }
             var smoothVocal by remember { mutableStateOf(true) }
+            var studioNaturalVocal by remember { mutableStateOf(true) }
             var vocalClarity by remember { mutableFloatStateOf(0.5f) }
             var phoneSpeakerLevel by remember { mutableFloatStateOf(0.30f) }
             var recordingOnPhone by remember { mutableStateOf(false) }
@@ -818,6 +819,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Text("Jika HP terhubung ke port LIVE1 soundcard lewat kabel analog, pilih Soundcard LIVE. Port ACCOMPANY biasanya input musik, bukan keluaran mic ke HP. Matikan suara balik aplikasi; dengarkan monitor langsung dari soundcard.", color = Color.LightGray, fontSize = 12.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = studioNaturalVocal, onCheckedChange = { if (!recording) studioNaturalVocal = it }, enabled = !recording)
+                        Text("Studio: vokal natural (hindari boost dan efek berlebihan)", color = Color.White, fontSize = 12.sp)
+                    }
                     if (microphoneSource == "live") {
                         Text("Level musik LIVE1: ${(liveMusicLevel * 100).toInt()}% (kurangi bila musik bocor ke rekaman vokal)", color = Color.LightGray, fontSize = 12.sp)
                         Slider(value = liveMusicLevel, onValueChange = { if (!recording) liveMusicLevel = it }, valueRange = 0.15f..1f, enabled = !recording)
@@ -867,8 +872,8 @@ class MainActivity : ComponentActivity() {
                                     val backingStart = sessionStartPositionMs
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
-                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
-                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
+                                    val selectedMusicGain = if (studioNaturalVocal) 0.55f else if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
+                                    val selectedVoiceGain = if (studioNaturalVocal) 1.0f else if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
@@ -880,7 +885,7 @@ class MainActivity : ComponentActivity() {
                                                 try {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
-                                                        destination, selectedMusicGain, selectedVoiceGain, smoothVocal, vocalClarity
+                                                        destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
