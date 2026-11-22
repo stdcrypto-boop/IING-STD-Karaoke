@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
             val wiredMonitor = remember { WiredVocalMonitor(this) }
             DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
             var monitorEnabled by remember { mutableStateOf(false) }
-            var monitorVolume by remember { mutableFloatStateOf(0.5f) }
+            var monitorVolume by remember { mutableFloatStateOf(1f) }
             var recordWithWiredMonitor by remember { mutableStateOf(false) }
             var recording by remember { mutableStateOf(false) }
             var recordingPaused by remember { mutableStateOf(false) }
@@ -285,7 +285,7 @@ class MainActivity : ComponentActivity() {
                         sessionMixCompatible = false
                         sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
                     }
-                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && microphoneSource != "live"
+                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor
                     recorder.wiredMonitorVolume = monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
@@ -790,14 +790,15 @@ class MainActivity : ComponentActivity() {
                     }
                     Text("🎧 Rekam + dengar vokal bersamaan (headphone kabel)", color = Pink, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording && microphoneSource != "live")
+                        Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording)
                         Spacer(Modifier.width(8.dp))
                         Text(if (recordWithWiredMonitor) "Aktif: rekaman WAV + suara balik" else "Nonaktif: rekaman standar", color = Color.LightGray, fontSize = 12.sp)
                     }
-                    Text("Sambungkan headphone kabel sebelum merekam. Mikrofon direkam satu kali dan dipantau melalui headphone. Monitoring akan berhenti saat rekaman selesai.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("LIVE OTG: aktifkan untuk memperkuat suara balik saat merekam melalui headphone/USB. Jika soundcard sudah memonitor mikrofon langsung, matikan monitoring perangkat agar tidak terdengar dobel, telat, atau bergema. Bila USB tidak mendukung jalur output, nonaktifkan opsi ini.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎧 Suara balik vokal headphone kabel (uji monitoring)", color = Pink, fontWeight = FontWeight.Bold)
                     Text("Mode uji: dengarkan mikrofon melalui headphone kabel. Matikan sebelum merekam; monitoring dan rekaman bersamaan belum tersedia.", color = Color.LightGray, fontSize = 12.sp)
-                    Slider(value = monitorVolume, onValueChange = { monitorVolume = it; wiredMonitor.setVolume(it) }, enabled = !recording)
+                    Text("Penguatan suara balik saat rekam: ${"%.1f".format(monitorVolume)}×", color = Color.LightGray, fontSize = 12.sp)
+                    Slider(value = monitorVolume, onValueChange = { monitorVolume = it; wiredMonitor.setVolume(it) }, valueRange = 0f..2f, enabled = !recording)
                     OutlinedButton(onClick = {
                         if (monitorEnabled) { wiredMonitor.stop(); monitorEnabled = false }
                         else if (recording) recordingStatus = "Selesaikan rekaman sebelum menguji monitoring."
