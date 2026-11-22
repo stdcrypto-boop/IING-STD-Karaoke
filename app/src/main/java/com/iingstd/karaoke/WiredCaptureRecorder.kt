@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.Environment
 import java.io.File
 import java.io.RandomAccessFile
+import android.os.Process
+import kotlin.math.sqrt
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
@@ -24,8 +26,10 @@ class WiredCaptureRecorder(private val context: Context) {
     private var playback: AudioTrack? = null
     private var file: File? = null
     private var failure: Throwable? = null
+    @Volatile private var monitorSmoothGain = 1f
 
-    fun setMonitorVolume(gain: Float) { monitorGain = gain.coerceIn(0f, 1f) }
+    fun setMonitorVolume(gain: Float) { monitorGain = gain.coerceIn(0f, 1f)
+            monitorSmoothGain = 1f }
     fun peakLevel() = peak
     fun isActive() = running.get()
     fun isPaused() = paused.get()
@@ -53,12 +57,12 @@ class WiredCaptureRecorder(private val context: Context) {
         var output: AudioTrack? = null
         try {
             input = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT, maxOf(inputMin, 4096))
+                AudioFormat.ENCODING_PCM_16BIT, maxOf(inputMin * 2, 8192))
             check(input.state == AudioRecord.STATE_INITIALIZED) { "Mikrofon tidak tersedia" }
             output = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                .setBufferSizeInBytes(maxOf(outputMin, 4096))
+                .setBufferSizeInBytes(maxOf(outputMin * 2, 8192))
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
             check(output.state == AudioTrack.STATE_INITIALIZED && output.setPreferredDevice(device)) { "Tidak bisa mengarahkan suara ke headphone" }
             val raf = RandomAccessFile(destination, "rw")
@@ -75,29 +79,56 @@ class WiredCaptureRecorder(private val context: Context) {
             thread = Thread {
                 var bytes = 0L
                 try {
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
                     RandomAccessFile(destination, "rw").use { wav ->
                         wav.seek(44)
                         capture.startRecording()
                         monitor.play()
-                        val samples = ShortArray(480)
-                        val listen = ShortArray(480)
+                        // Block I/O avoids thousands of tiny file writes per second,
+                        // which previously starved the audio callback and caused crackling.
+                        val samples = ShortArray(240)
+                        val listen = ShortArray(240)
+                        val pcm = ByteArray(samples.size * 2)
+                        var routeCheck = 0
                         while (running.get()) {
-                            val n = capture.read(samples, 0, samples.size)
+                            val n = capture.read(samples, 0, samples.size, AudioRecord.READ_BLOCKING)
                             if (n <= 0) break
                             if (paused.get()) continue
                             var max = 0
+                            var sumSquares = 0.0
                             for (i in 0 until n) {
                                 val value = samples[i].toInt()
                                 max = maxOf(max, abs(value))
-                                listen[i] = (value * monitorGain).toInt().coerceIn(-32768, 32767).toShort()
-                                wav.write(value and 255)
-                                wav.write((value shr 8) and 255)
+                                sumSquares += value.toDouble() * value
+                                pcm[i * 2] = (value and 255).toByte()
+                                pcm[i * 2 + 1] = ((value shr 8) and 255).toByte()
                             }
+                            // Keep recording untouched; process monitor signal only.
+                            // Gentle auto-gain with soft limiting, capped to prevent clipping.
+                            val rms = sqrt(sumSquares / n) / 32768.0
+                            val target = (0.13 / maxOf(rms, 0.025)).coerceIn(0.7, 2.0).toFloat()
+                            monitorSmoothGain += (target - monitorSmoothGain) * 0.025f
+                            val effectiveGain = monitorGain * monitorSmoothGain
+                            for (i in 0 until n) {
+                                val value = samples[i].toInt() * effectiveGain
+                                listen[i] = (value / (1f + abs(value) / 30000f)).toInt()
+                                    .coerceIn(-32768, 32767).toShort()
+                            }
+                            wav.write(pcm, 0, n * 2)
                             bytes += n * 2L
                             peak = max / 32768f
-                            // Never send monitored voice to the loudspeaker if wired output disappears.
-                            if (wiredOutput() == null) break
-                            if (monitor.write(listen, 0, n) < 0) break
+                            // Check physical output route periodically, not on every buffer.
+                            if (++routeCheck >= 20) {
+                                routeCheck = 0
+                                if (wiredOutput() == null) break
+                            }
+                            var offset = 0
+                            while (offset < n && running.get()) {
+                                val written = monitor.write(listen, offset, n - offset, AudioTrack.WRITE_BLOCKING)
+                                if (written <= 0) break
+                                offset += written
+                            }
+                            if (offset < n) break
                         }
                         writeHeader(wav, bytes, rate)
                     }
