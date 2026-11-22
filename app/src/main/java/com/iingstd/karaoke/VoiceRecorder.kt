@@ -100,16 +100,20 @@ class VoiceRecorder(private val context: Context) {
                 // The built-in microphone benefits from Android's communication capture path.
                 // Echo/noise suppression availability varies by device.
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                val externalConnected = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).any {
+                val availableInputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                val hasAnalogOrUsbInput = availableInputs.any {
                     it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
                         it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
                 }
+                // Avoid VOICE_COMMUNICATION processing and Bluetooth SCO for analog LIVE:
+                // both can add latency, aggressive noise gates and unpredictable routing.
+                val externalCapture = microphoneSource == "headset" ||
+                    microphoneSource == "usb" ||
+                    (microphoneSource == "auto" && hasAnalogOrUsbInput)
                 r.setAudioSource(
-                    if (!externalConnected) MediaRecorder.AudioSource.VOICE_COMMUNICATION
-                    else if (Build.VERSION.SDK_INT >= 29) MediaRecorder.AudioSource.VOICE_PERFORMANCE
-                    else MediaRecorder.AudioSource.MIC
+                    if (externalCapture) MediaRecorder.AudioSource.MIC
+                    else MediaRecorder.AudioSource.VOICE_COMMUNICATION
                 )
                 r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
