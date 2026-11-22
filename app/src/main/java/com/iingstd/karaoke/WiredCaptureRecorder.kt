@@ -43,7 +43,7 @@ class WiredCaptureRecorder(private val context: Context) {
         }
     }
 
-    fun start(gain: Float): Uri {
+    fun start(gain: Float, microphoneSource: String = "auto"): Uri {
         check(!running.get()) { "Capture already running" }
         val device = wiredOutput() ?: error("Headphone kabel tidak terdeteksi")
         val rate = 48000
@@ -59,6 +59,17 @@ class WiredCaptureRecorder(private val context: Context) {
             input = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, maxOf(inputMin * 2, 8192))
             check(input.state == AudioRecord.STATE_INITIALIZED) { "Mikrofon tidak tersedia" }
+            val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+            val preferred = when (microphoneSource) {
+                "usb" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+                "headset" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+                "phone" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+                else -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+                    ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+            }
+            if (microphoneSource != "auto" && preferred == null) error("Sumber mikrofon tidak terdeteksi")
+            if (preferred != null && !input.setPreferredDevice(preferred) && microphoneSource != "auto") error("Gagal memilih mikrofon")
             output = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
