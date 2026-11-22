@@ -314,7 +314,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
                                 karaokeVideoId?.let { selectedId ->
-                                    Text("Mode karaoke: video saja, tanpa komentar", color = Color.LightGray, fontSize = 12.sp)
+                                    Text("Lirik mengikuti video karaoke yang dipilih. Gunakan video berlabel karaoke + lirik.", color = Color.LightGray, fontSize = 12.sp)
                                     key(selectedId) {
                                         AndroidView(
                                             factory = { context ->
@@ -327,7 +327,7 @@ class MainActivity : ComponentActivity() {
                                                     loadUrl("https://www.youtube.com/embed/$selectedId?playsinline=1&rel=0")
                                                 }
                                             },
-                                            modifier = Modifier.fillMaxWidth().height(240.dp),
+                                            modifier = Modifier.fillMaxWidth().weight(1f),
                                             onRelease = { view ->
                                                 view.stopLoading()
                                                 view.loadUrl("about:blank")
@@ -335,7 +335,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         )
                                     }
-                                    Text("Jika video menolak pemutaran tertanam, pilih hasil karaoke lain.",
+                                    Text("Jika tidak muncul lirik, video yang dipilih mungkin bukan versi karaoke berlirik.",
                                         color = Color.LightGray, fontSize = 12.sp)
                                 }
                                 if (internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -353,7 +353,7 @@ class MainActivity : ComponentActivity() {
                                         internalBrowserError = ""
                                     }) { Text("✕ Tutup") }
                                 }
-                                key(searchUrl) {
+                                if (karaokeVideoId == null) key(searchUrl) {
                                     AndroidView(
                                         factory = { context ->
                                             WebView(context).apply {
