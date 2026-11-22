@@ -158,9 +158,11 @@ class MainActivity : ComponentActivity() {
             var internalBrowser by remember { mutableStateOf<WebView?>(null) }
             var internalBrowserLoading by remember { mutableStateOf(false) }
             var internalBrowserError by remember { mutableStateOf("") }
+            var karaokeVideoId by remember { mutableStateOf<String?>(null) }
             BackHandler(enabled = internalSearchUrl != null) {
                 val browser = internalBrowser
-                if (browser?.canGoBack() == true) browser.goBack() else internalSearchUrl = null
+                if (karaokeVideoId != null) karaokeVideoId = null
+                else if (browser?.canGoBack() == true) browser.goBack() else internalSearchUrl = null
             }
 
             var youtubeVideoId by remember { mutableStateOf<String?>(null) }
@@ -314,13 +316,39 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxSize().background(Dark).padding(12.dp)
                             ) {
                                 Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
+                                karaokeVideoId?.let { selectedId ->
+                                    Text("Mode karaoke: video saja, tanpa komentar", color = Color.LightGray, fontSize = 12.sp)
+                                    key(selectedId) {
+                                        AndroidView(
+                                            factory = { context ->
+                                                WebView(context).apply {
+                                                    settings.javaScriptEnabled = true
+                                                    settings.domStorageEnabled = true
+                                                    settings.mediaPlaybackRequiresUserGesture = true
+                                                    webChromeClient = WebChromeClient()
+                                                    webViewClient = WebViewClient()
+                                                    loadUrl("https://www.youtube.com/embed/$selectedId?playsinline=1&rel=0")
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth().height(240.dp),
+                                            onRelease = { view ->
+                                                view.stopLoading()
+                                                view.loadUrl("about:blank")
+                                                view.destroy()
+                                            }
+                                        )
+                                    }
+                                    Text("Jika video menolak pemutaran tertanam, pilih hasil karaoke lain.",
+                                        color = Color.LightGray, fontSize = 12.sp)
+                                }
                                 if (internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                 if (internalBrowserError.isNotBlank()) {
                                     Text(internalBrowserError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = {
-                                        internalBrowser?.let { if (it.canGoBack()) it.goBack() }
+                                        if (karaokeVideoId != null) karaokeVideoId = null
+                                        else internalBrowser?.let { if (it.canGoBack()) it.goBack() }
                                     }) { Text("← Kembali") }
                                     TextButton(onClick = { internalBrowser?.reload() }) { Text("↻ Ulang") }
                                     TextButton(onClick = {
@@ -338,6 +366,24 @@ class MainActivity : ComponentActivity() {
                                                 settings.mediaPlaybackRequiresUserGesture = true
                                                 webChromeClient = WebChromeClient()
                                                 webViewClient = object : WebViewClient() {
+                                                    override fun shouldOverrideUrlLoading(
+                                                        view: WebView?,
+                                                        request: android.webkit.WebResourceRequest?
+                                                    ): Boolean {
+                                                        val target = request?.url ?: return false
+                                                        val host = target.host?.lowercase()?.removePrefix("www.") ?: return false
+                                                        if (host == "youtube.com" || host == "m.youtube.com" || host == "youtu.be") {
+                                                            val id = if (host == "youtu.be") target.pathSegments.firstOrNull()
+                                                                else if (target.pathSegments.firstOrNull() in listOf("shorts", "live", "embed"))
+                                                                    target.pathSegments.getOrNull(1)
+                                                                else target.getQueryParameter("v")
+                                                            if (id != null && id.matches(Regex("[A-Za-z0-9_-]{11}"))) {
+                                                                karaokeVideoId = id
+                                                                return true
+                                                            }
+                                                        }
+                                                        return false
+                                                    }
                                                     override fun onPageStarted(
                                                         view: WebView?, url: String?, favicon: android.graphics.Bitmap?
                                                     ) {
