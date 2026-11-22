@@ -25,7 +25,9 @@ class WiredVocalMonitor(private val context: Context) {
     private var input: AudioRecord? = null
     private var output: AudioTrack? = null
 
-    fun setVolume(value: Float) { gain = value.coerceIn(0f, 1f) }
+    // Match the UI monitor slider (0–200%). Values above 100% are
+    // intentional digital gain; the PCM loop clips safely to 16-bit range.
+    fun setVolume(value: Float) { gain = value.coerceIn(0f, 2f) }
 
     private fun wiredOutput(): AudioDeviceInfo? {
         val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
