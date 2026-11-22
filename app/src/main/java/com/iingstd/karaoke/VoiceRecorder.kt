@@ -66,13 +66,13 @@ class VoiceRecorder(private val context: Context) {
 
     fun start(preferExternalMic: Boolean = false): Uri {
         routeNotice = ""
+        check(!isRecording) { "Recording already in progress" }
         if (wiredMonitoringEnabled) {
             val uri = wiredRecorder.start(wiredMonitorVolume, microphoneSource)
             wiredSession = true
             paused = false
             return uri
         }
-        check(recorder == null) { "Recording already in progress" }
         paused = false
         val name = "IING-VOICE-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".m4a"
         val values = ContentValues().apply {
@@ -100,8 +100,10 @@ class VoiceRecorder(private val context: Context) {
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
             recorder = r
             run {
-                // The built-in microphone benefits from Android's communication capture path.
-                // Echo/noise suppression availability varies by device.
+                // Singing should not use VOICE_COMMUNICATION by default: device AEC,
+                // noise gates and automatic gain control can cause pumping, muffled
+                // notes and variable vocal levels. Standard MIC is more predictable.
+                // Physical speaker bleed still requires headphones or lower volume.
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                 val availableInputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
                 val hasAnalogOrUsbInput = availableInputs.any {
@@ -124,7 +126,7 @@ class VoiceRecorder(private val context: Context) {
                 val source = when {
                     externalCapture && unprocessedSupported -> MediaRecorder.AudioSource.UNPROCESSED
                     externalCapture -> MediaRecorder.AudioSource.MIC
-                    else -> MediaRecorder.AudioSource.VOICE_COMMUNICATION
+                    else -> MediaRecorder.AudioSource.MIC
                 }
                 r.setAudioSource(source)
                 if (externalCapture) {
