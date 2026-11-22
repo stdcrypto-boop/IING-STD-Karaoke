@@ -324,6 +324,8 @@ class MainActivity : ComponentActivity() {
                                                     settings.mediaPlaybackRequiresUserGesture = true
                                                     webChromeClient = WebChromeClient()
                                                     webViewClient = WebViewClient()
+                                                    settings.loadWithOverviewMode = true
+                                                    settings.useWideViewPort = true
                                                     loadUrl("https://www.youtube.com/embed/$selectedId?playsinline=1&rel=0")
                                                 }
                                             },
@@ -335,7 +337,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         )
                                     }
-                                    Text("Jika tidak muncul lirik, video yang dipilih mungkin bukan versi karaoke berlirik.",
+                                    Text("Lirik hanya tersedia jika videonya memuat lirik. Video yang membatasi embed mungkin tidak dapat diputar.",
                                         color = Color.LightGray, fontSize = 12.sp)
                                 }
                                 if (karaokeVideoId == null && internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -437,7 +439,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                 }
-                                Text("Pilih video karaoke di hasil pencarian. Pemutaran tergantung izin video YouTube.",
+                                if (karaokeVideoId == null) Text("Pilih video karaoke tanpa vokal yang memiliki lirik. Pemutaran tergantung izin video YouTube.",
                                     color = Color.LightGray, fontSize = 12.sp)
                             }
                         }
@@ -476,8 +478,10 @@ class MainActivity : ComponentActivity() {
                             TextButton(onClick = {
                                 onlineSearch = songTitle
                                 mode = "Online"
-                                internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
-                                    .appendQueryParameter("search_query", songTitle + " karaoke instrumental lirik").build().toString()
+                                karaokeVideoId = null
+                            internalBrowserError = ""
+                            internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
+                                    .appendQueryParameter("search_query", songTitle + " karaoke tanpa vokal minus one lirik").build().toString()
                             }) { Text("🔎 " + songTitle) }
                         }
                     }
@@ -507,8 +511,10 @@ class MainActivity : ComponentActivity() {
                             TextButton(onClick = {
                                 onlineSearch = artist
                                 mode = "Online"
-                                internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
-                                    .appendQueryParameter("search_query", artist + " karaoke instrumental lirik").build().toString()
+                                karaokeVideoId = null
+                            internalBrowserError = ""
+                            internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
+                                    .appendQueryParameter("search_query", artist + " karaoke tanpa vokal minus one lirik").build().toString()
                             }) { Text("🎤 " + artist) }
                         }
                     }
@@ -529,8 +535,10 @@ class MainActivity : ComponentActivity() {
                             if (query.isBlank()) {
                                 error = "Tulis judul lagu terlebih dahulu"
                             } else {
-                                internalSearchUrl = Uri.parse("https://m.youtube.com/results")
-                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke instrumental lirik").build().toString()
+                                karaokeVideoId = null
+                            internalBrowserError = ""
+                            internalSearchUrl = Uri.parse("https://m.youtube.com/results")
+                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke tanpa vokal minus one lirik").build().toString()
                                 error = ""
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
