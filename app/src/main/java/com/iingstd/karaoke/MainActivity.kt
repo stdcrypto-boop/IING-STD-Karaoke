@@ -114,6 +114,7 @@ class MainActivity : ComponentActivity() {
                 microphoneLevel = 0f
             }
             var externalMic by remember { mutableStateOf(false) }
+            var microphoneSource by remember { mutableStateOf("auto") }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -259,6 +260,7 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
+                    recorder.microphoneSource = microphoneSource
                     recorder.wiredMonitoringEnabled = recordWithWiredMonitor
                     recorder.wiredMonitorVolume = monitorVolume
                     recorder.start()
@@ -787,7 +789,14 @@ class MainActivity : ComponentActivity() {
                     }
                     if (showMicOptions) {
                     Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
-                    Text("Mikrofon dipilih otomatis: USB/soundcard → headset kabel → mikrofon HP.", color = Pink)
+                    Text("Pilih input mikrofon sesuai kabel yang benar-benar terhubung:", color = Pink)
+                    listOf("auto" to "Otomatis", "usb" to "USB / soundcard", "headset" to "Mic headset kabel", "phone" to "Mic HP").forEach { (id, title) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = microphoneSource == id, onClick = { if (!recording) microphoneSource = id }, enabled = !recording)
+                            Text(title, color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                    Text("Jika mikrofon asli masuk ke jack MIC soundcard, pilih USB/soundcard. Jika langsung ke HP, pilih Mic HP. Pastikan tombol MIC GAIN pada soundcard tidak terlalu rendah.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Sambungkan Bonkyo F999 Max melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
                         color = Color.LightGray, fontSize = 12.sp)
                     }
@@ -828,8 +837,8 @@ class MainActivity : ComponentActivity() {
                                     val backingStart = sessionStartPositionMs
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
-                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else 0.75f
-                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else 0.95f
+                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else 0.40f
+                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else 1.65f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
