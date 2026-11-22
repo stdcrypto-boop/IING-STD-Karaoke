@@ -249,8 +249,15 @@ class MainActivity : ComponentActivity() {
                         it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
                         it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     }
-                    recordingOnPhone = !hasExternalInput
-                    player.volume = if (hasExternalInput) volume else (volume * phoneSpeakerLevel)
+                    val hasWiredOutput = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                            it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                            it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                    }
+                    recordingOnPhone = !hasExternalInput && !hasWiredOutput
+                    // Do not attenuate music for an analog LIVE connection: the cable
+                    // already isolates playback from the phone's built-in speaker.
+                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else volume
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -260,8 +267,8 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
-                    recorder.microphoneSource = microphoneSource
-                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor
+                    recorder.microphoneSource = if (microphoneSource == "live") "headset" else microphoneSource
+                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && microphoneSource != "live"
                     recorder.wiredMonitorVolume = monitorVolume
                     recorder.start()
                     // The previous mix belongs to an older vocal take.
@@ -751,9 +758,12 @@ class MainActivity : ComponentActivity() {
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
+                    if (microphoneSource == "live") {
+                        Text("⚠️ Mode LIVE: monitoring vokal melalui soundcard, bukan aplikasi. Matikan fitur suara balik agar tidak delay atau kresek.", color = Pink, fontSize = 12.sp)
+                    }
                     Text("🎧 Rekam + dengar vokal bersamaan (headphone kabel)", color = Pink, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording)
+                        Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording && microphoneSource != "live")
                         Spacer(Modifier.width(8.dp))
                         Text(if (recordWithWiredMonitor) "Aktif: rekaman WAV + suara balik" else "Nonaktif: rekaman standar", color = Color.LightGray, fontSize = 12.sp)
                     }
@@ -790,13 +800,13 @@ class MainActivity : ComponentActivity() {
                     if (showMicOptions) {
                     Text("Indikator ini bukan pemantauan suara melalui speaker. Audio mikrofon tidak diputar ulang agar tidak menimbulkan feedback.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Pilih input mikrofon sesuai kabel yang benar-benar terhubung:", color = Pink)
-                    listOf("auto" to "Otomatis", "usb" to "USB / soundcard", "headset" to "Mic headset kabel", "phone" to "Mic HP").forEach { (id, title) ->
+                    listOf("live" to "Soundcard LIVE (kabel analog)", "auto" to "Otomatis", "usb" to "USB / soundcard", "headset" to "Mic headset kabel", "phone" to "Mic HP").forEach { (id, title) ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = microphoneSource == id, onClick = { if (!recording) microphoneSource = id }, enabled = !recording)
                             Text(title, color = Color.White, fontSize = 13.sp)
                         }
                     }
-                    Text("Jika mikrofon asli masuk ke jack MIC soundcard, pilih USB/soundcard. Jika langsung ke HP, pilih Mic HP. Pastikan tombol MIC GAIN pada soundcard tidak terlalu rendah.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("Jika HP terhubung ke port LIVE1 soundcard lewat kabel analog, pilih Soundcard LIVE. Port ACCOMPANY biasanya input musik, bukan keluaran mic ke HP. Matikan suara balik aplikasi; dengarkan monitor langsung dari soundcard.", color = Color.LightGray, fontSize = 12.sp)
                     Text("Sambungkan Bonkyo F999 Max melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
                         color = Color.LightGray, fontSize = 12.sp)
                     }
@@ -837,8 +847,8 @@ class MainActivity : ComponentActivity() {
                                     val backingStart = sessionStartPositionMs
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
-                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else 0.40f
-                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else 1.65f
+                                    val selectedMusicGain = if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
+                                    val selectedVoiceGain = if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
