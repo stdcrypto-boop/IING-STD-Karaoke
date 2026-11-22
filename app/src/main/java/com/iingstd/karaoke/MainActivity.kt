@@ -338,7 +338,7 @@ class MainActivity : ComponentActivity() {
                                     Text("Jika tidak muncul lirik, video yang dipilih mungkin bukan versi karaoke berlirik.",
                                         color = Color.LightGray, fontSize = 12.sp)
                                 }
-                                if (internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                if (karaokeVideoId == null && internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                 if (internalBrowserError.isNotBlank()) {
                                     Text(internalBrowserError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
                                 }
@@ -347,9 +347,13 @@ class MainActivity : ComponentActivity() {
                                         if (karaokeVideoId != null) karaokeVideoId = null
                                         else internalBrowser?.let { if (it.canGoBack()) it.goBack() }
                                     }) { Text("← Kembali") }
-                                    TextButton(onClick = { internalBrowser?.reload() }) { Text("↻ Ulang") }
+                                    TextButton(onClick = {
+                                        if (karaokeVideoId != null) karaokeVideoId = null
+                                        else internalBrowser?.reload()
+                                    }) { Text(if (karaokeVideoId != null) "🔎 Pilih video lain" else "↻ Ulang") }
                                     TextButton(onClick = {
                                         internalSearchUrl = null
+                                        karaokeVideoId = null
                                         internalBrowserError = ""
                                     }) { Text("✕ Tutup") }
                                 }
@@ -380,6 +384,25 @@ class MainActivity : ComponentActivity() {
                                                             }
                                                         }
                                                         return false
+                                                    }
+                                                    // YouTube mobile search can navigate with the History API.
+                                                    // Catch those changes too, not only normal link clicks.
+                                                    override fun doUpdateVisitedHistory(
+                                                        view: WebView?, url: String?, isReload: Boolean
+                                                    ) {
+                                                        super.doUpdateVisitedHistory(view, url, isReload)
+                                                        val parsed = url?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return
+                                                        val host = parsed.host?.lowercase()?.removePrefix("www.") ?: return
+                                                        if (host !in listOf("youtube.com", "m.youtube.com", "youtu.be")) return
+                                                        val videoId = if (host == "youtu.be") parsed.pathSegments.firstOrNull()
+                                                            else if (parsed.pathSegments.firstOrNull() in listOf("shorts", "live", "embed"))
+                                                                parsed.pathSegments.getOrNull(1)
+                                                            else if (parsed.pathSegments.firstOrNull() == "watch")
+                                                                parsed.getQueryParameter("v")
+                                                            else null
+                                                        if (videoId != null && videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) {
+                                                            karaokeVideoId = videoId
+                                                        }
                                                     }
                                                     override fun onPageStarted(
                                                         view: WebView?, url: String?, favicon: android.graphics.Bitmap?
