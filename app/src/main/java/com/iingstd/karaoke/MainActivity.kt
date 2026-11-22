@@ -880,7 +880,7 @@ class MainActivity : ComponentActivity() {
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
                                     val selectedMusicGain = if (studioNaturalVocal) 0.48f else if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
-                                    val selectedVoiceGain = if (studioNaturalVocal) 1.25f else if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
+                                    val selectedVoiceGain = if (studioNaturalVocal) 1.0f else if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
