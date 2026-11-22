@@ -186,8 +186,8 @@ class MainActivity : ComponentActivity() {
                         currentSong = null
                         localVideoUri = null
                         track = "YouTube • " + id
-                        mode = "Online"
-                        url = link
+                        mode = "Offline"
+                        url = ""
                     }
                     incomingYouTubeLink = null
                 }
@@ -230,6 +230,16 @@ class MainActivity : ComponentActivity() {
                     player.repeatMode = Player.REPEAT_MODE_OFF
                     repeatOne = false
                     player.play()
+                    // Speaker playback can leak into the built-in microphone and be
+                    // duplicated when the clean backing track is mixed afterward.
+                    val inputManager = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+                    val hasExternalInput = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    }
+                    player.volume = if (hasExternalInput) volume else (volume * 0.30f)
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -522,27 +532,9 @@ class MainActivity : ComponentActivity() {
                     Text("🎤 IING STD KARAOKE", color = Pink, fontWeight = FontWeight.Bold, fontSize = 24.sp)
                     Spacer(Modifier.height(8.dp))
                     Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-                    ) {
-                        listOf("Offline", "Online").forEach { item ->
-                            Button(
-                                onClick = { mode = item },
-                                modifier = Modifier.size(82.dp),
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                                contentPadding = PaddingValues(0.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (mode == item) Pink else BlueGreyButton
-                                )
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(if (item == "Offline") "♫" else "▶", fontSize = 21.sp)
-                                    Text(item, fontSize = 11.sp)
-                                }
-                            }
-                        }
-                    }
+                    Text("🎵 Studio karaoke offline", color = Pink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Pilih lagu MP3/MP4 dari HP. Rekam vokal dan gabungkan dengan musik tanpa internet.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("💡 Tanpa headset: kecilkan volume speaker HP agar musik tidak bocor dua kali ke mikrofon.", color = Color.LightGray, fontSize = 12.sp)
                     Spacer(Modifier.height(14.dp))
                     if (mode == "Offline") {
                         Text("🎼 Karaoke offline dari file HP", color = Pink, fontWeight = FontWeight.Bold)
@@ -781,6 +773,7 @@ class MainActivity : ComponentActivity() {
                                         sessionMixWarning = "Sumber musik atau kecepatan berubah saat merekam"
                                     }
                                     player.pause()
+                                    player.volume = volume
                                     lastRecording = saved
                                     recordingPrefs.edit()
                                         .putString("last_uri", saved.toString())
