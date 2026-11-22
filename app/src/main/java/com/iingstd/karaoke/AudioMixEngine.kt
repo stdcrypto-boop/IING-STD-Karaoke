@@ -86,10 +86,10 @@ object AudioMixEngine {
                         header.putInt(bytes)
                         output.write(header.array())
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
-                        val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal, vocalClarity) }
+                        val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal, vocalClarity, naturalStudio) }
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
-                        val balance = estimateBalance(music, vocal, backing, voice, offset)
-                        val balancedMusicGain = (backingGain * balance).coerceIn(0.10, 0.90)
+                        val balance = if (naturalStudio) 1.0 else estimateBalance(music, vocal, backing, voice, offset)
+                        val balancedMusicGain = (backingGain * balance).coerceIn(0.0, 0.90)
                         val vocalBoost = if (naturalStudio) 1.0 else estimateVocalBoost(vocal, voice)
                         val effectiveVoiceGain = voiceGain * vocalBoost
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
@@ -225,8 +225,8 @@ object AudioMixEngine {
     }
 
     /** Remove microphone rumble and gently compress loud vocal syllables. */
-    private class VocalProcessor(sampleRate: Int, private val smooth: Boolean, private val clarity: Float) {
-        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (smooth) 110.0 else 75.0) / sampleRate)
+    private class VocalProcessor(sampleRate: Int, private val smooth: Boolean, private val clarity: Float, private val naturalStudio: Boolean) {
+        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (naturalStudio) 65.0 else if (smooth) 95.0 else 75.0) / sampleRate)
         private val attack = kotlin.math.exp(-1.0 / (sampleRate * 0.008))
         private val release = kotlin.math.exp(-1.0 / (sampleRate * 0.120))
         private var lowPass = 0.0
@@ -252,6 +252,9 @@ object AudioMixEngine {
             val shaped = highPassed - lowMid * clarity * 0.14 +
                 (highPassed - presenceLow) * clarity * 0.24 +
                 (highPassed - airLow) * clarity * 0.12
+            // Studio mode keeps the original timbre and dynamics: no presence/air boosts,
+            // no artificial compression or makeup gain. Only remove sub-bass/rumble.
+            if (naturalStudio) return highPassed
             val level = kotlin.math.abs(shaped)
             val smoothing = if (level > envelope) attack else release
             envelope = smoothing * envelope + (1.0 - smoothing) * level
