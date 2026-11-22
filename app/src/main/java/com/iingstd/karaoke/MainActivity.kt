@@ -153,6 +153,7 @@ class MainActivity : ComponentActivity() {
             var mode by remember { mutableStateOf("Offline") }
             var url by remember { mutableStateOf("") }
             var onlineSearch by remember { mutableStateOf("") }
+            var internalSearchUrl by remember { mutableStateOf<String?>(null) }
 
             var youtubeVideoId by remember { mutableStateOf<String?>(null) }
             var localVideoUri by remember { mutableStateOf<String?>(null) }
@@ -322,6 +323,8 @@ class MainActivity : ComponentActivity() {
                             TextButton(onClick = {
                                 onlineSearch = songTitle
                                 mode = "Online"
+                                internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
+                                    .appendQueryParameter("search_query", songTitle + " karaoke instrumental lirik").build().toString()
                             }) { Text("🔎 " + songTitle) }
                         }
                     }
@@ -351,6 +354,8 @@ class MainActivity : ComponentActivity() {
                             TextButton(onClick = {
                                 onlineSearch = artist
                                 mode = "Online"
+                                internalSearchUrl = Uri.parse("https://m.youtube.com/results").buildUpon()
+                                    .appendQueryParameter("search_query", artist + " karaoke instrumental lirik").build().toString()
                             }) { Text("🎤 " + artist) }
                         }
                     }
@@ -405,15 +410,37 @@ class MainActivity : ComponentActivity() {
                             if (query.isBlank()) {
                                 error = "Tulis judul lagu terlebih dahulu"
                             } else {
-                                val searchUri = Uri.parse("https://www.youtube.com/results")
-                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke").build()
-                                runCatching {
-                                    startActivity(Intent(Intent.ACTION_VIEW, searchUri))
-                                }.onFailure { error = "Tidak dapat membuka YouTube" }
+                                internalSearchUrl = Uri.parse("https://m.youtube.com/results")
+                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke instrumental lirik").build().toString()
+                                error = ""
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
-                        Text("Setelah memilih video di YouTube, tekan Bagikan → IING STD KARAOKE. Video akan disiapkan di aplikasi. Tidak perlu salin link.",
+                        Text("Hasil pencarian dibuka di dalam aplikasi. Ketuk video untuk mencoba memutar. Beberapa video YouTube membatasi pemutaran di WebView.",
                             color = Color.LightGray, fontSize = 12.sp)
+                        internalSearchUrl?.let { searchUrl ->
+                            key(searchUrl) {
+                                AndroidView(
+                                    factory = { context ->
+                                        WebView(context).apply {
+                                            settings.javaScriptEnabled = true
+                                            settings.domStorageEnabled = true
+                                            settings.loadsImagesAutomatically = true
+                                            settings.mediaPlaybackRequiresUserGesture = true
+                                            webChromeClient = WebChromeClient()
+                                            webViewClient = WebViewClient()
+                                            loadUrl(searchUrl)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(460.dp),
+                                    onRelease = { webView ->
+                                        webView.stopLoading()
+                                        webView.loadUrl("about:blank")
+                                        webView.destroy()
+                                    }
+                                )
+                            }
+                            TextButton(onClick = { internalSearchUrl = null }) { Text("✕ Tutup pencarian") }
+                        }
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
