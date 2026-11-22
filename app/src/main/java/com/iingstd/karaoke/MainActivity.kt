@@ -139,8 +139,8 @@ class MainActivity : ComponentActivity() {
             val mixScope = rememberCoroutineScope()
             var mixing by remember { mutableStateOf(false) }
             var mixStatus by remember { mutableStateOf("") }
-            var musicGain by remember { mutableFloatStateOf(0.65f) }
-            var voiceGain by remember { mutableFloatStateOf(1f) }
+            var musicGain by remember { mutableFloatStateOf(0.85f) }
+            var voiceGain by remember { mutableFloatStateOf(1.15f) }
             var syncAdjustmentMs by remember { mutableFloatStateOf(0f) }
             var autoMusicDelayMs by remember { mutableLongStateOf(0L) }
             var mixedFile by remember {
@@ -206,7 +206,7 @@ class MainActivity : ComponentActivity() {
             var duration by remember { mutableLongStateOf(0L) }
             var speed by remember { mutableFloatStateOf(1f) }
             var pitch by remember { mutableFloatStateOf(1f) }
-            var volume by remember { mutableFloatStateOf(1f) }
+            var volume by remember { mutableFloatStateOf(0.85f) }
             var repeatOne by remember { mutableStateOf(false) }
             var smoothVocal by remember { mutableStateOf(true) }
             var studioNaturalVocal by remember { mutableStateOf(true) }
@@ -293,7 +293,7 @@ class MainActivity : ComponentActivity() {
                     player.play()
                     // Estimate startup offset using monotonic timestamps. This does not
                     // measure hardware latency; the manual fine-tuning control remains.
-                    autoMusicDelayMs = ((playbackRequestNs - captureStartNs) / 1_000_000L).coerceIn(0L, 2000L)
+                    autoMusicDelayMs = if (microphoneSource == "live") 253L else ((playbackRequestNs - captureStartNs) / 1_000_000L).coerceIn(0L, 2000L)
                     recordingPrefs.edit().putLong("last_auto_music_delay_ms", autoMusicDelayMs).apply()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
@@ -887,8 +887,8 @@ class MainActivity : ComponentActivity() {
                                     val backingStart = sessionStartPositionMs
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
-                                    val selectedMusicGain = if (studioNaturalVocal) 0.48f else if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
-                                    val selectedVoiceGain = if (studioNaturalVocal) 1.0f else if (recordingOnPhone) 1.15f else 1.0f
+                                    val selectedMusicGain = musicGain
+                                    val selectedVoiceGain = voiceGain
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
