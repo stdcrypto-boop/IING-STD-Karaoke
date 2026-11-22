@@ -167,13 +167,22 @@ object AudioMixEngine {
         private val airAlpha = kotlin.math.exp(-2.0 * Math.PI * 4300.0 / sampleRate)
         private var presenceLow = 0.0
         private var airLow = 0.0
+        private val bodyLowAlpha = kotlin.math.exp(-2.0 * Math.PI * 280.0 / sampleRate)
+        private val bodyHighAlpha = kotlin.math.exp(-2.0 * Math.PI * 850.0 / sampleRate)
+        private var bodyLow = 0.0
+        private var bodyHigh = 0.0
 
         fun process(sample: Double): Double {
             lowPass = (1.0 - hpAlpha) * sample + hpAlpha * lowPass
             val highPassed = sample - lowPass
             presenceLow = (1.0 - presenceAlpha) * highPassed + presenceAlpha * presenceLow
             airLow = (1.0 - airAlpha) * highPassed + airAlpha * airLow
-            val shaped = highPassed + (highPassed - presenceLow) * clarity * 0.24 +
+            bodyLow = (1.0 - bodyLowAlpha) * highPassed + bodyLowAlpha * bodyLow
+            bodyHigh = (1.0 - bodyHighAlpha) * highPassed + bodyHighAlpha * bodyHigh
+            // Mild low-mid reduction prevents boxiness without thinning fundamentals.
+            val lowMid = bodyHigh - bodyLow
+            val shaped = highPassed - lowMid * clarity * 0.14 +
+                (highPassed - presenceLow) * clarity * 0.24 +
                 (highPassed - airLow) * clarity * 0.12
             val level = kotlin.math.abs(shaped)
             val smoothing = if (level > envelope) attack else release
