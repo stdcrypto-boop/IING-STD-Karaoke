@@ -115,7 +115,7 @@ class MainActivity : ComponentActivity() {
             }
             var externalMic by remember { mutableStateOf(false) }
             var microphoneSource by remember { mutableStateOf("auto") }
-            var liveContainsMusic by remember { mutableStateOf(true) }
+            var liveContainsMusic by remember { mutableStateOf(false) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -819,7 +819,7 @@ class MainActivity : ComponentActivity() {
                     if (microphoneSource == "live") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = liveContainsMusic, onCheckedChange = { if (!recording) liveContainsMusic = it }, enabled = !recording)
-                            Text("LIVE1 sudah mengirim musik + vokal", color = Color.White, fontSize = 12.sp)
+                            Text("Rekaman LIVE1 sudah berisi musik + vokal (hindari musik dobel)", color = Color.White, fontSize = 12.sp)
                         }
                         Text("Aktifkan jika rekaman LIVE1 sudah berisi musik dan vokal. Aplikasi tidak akan menambahkan musik lagi sehingga tidak bertabrakan. Matikan hanya jika LIVE1 mengirim vokal saja.", color = Color.LightGray, fontSize = 12.sp)
                     }
