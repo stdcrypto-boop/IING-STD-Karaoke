@@ -271,8 +271,16 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
-                    // For analog LIVE, let Android choose the same capture route used by the phone recorder.
-                    recorder.microphoneSource = if (microphoneSource == "live") "system" else microphoneSource
+                    // LIVE OTG is a USB audio input when Android exposes one.
+                    // Prefer it explicitly; otherwise keep Android's default route
+                    // for analog LIVE adapters and soundcards without USB capture.
+                    val liveUsbInputAvailable = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE ||
+                            it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                    }
+                    recorder.microphoneSource = if (microphoneSource == "live") {
+                        if (liveUsbInputAvailable) "usb" else "system"
+                    } else microphoneSource
                     if (microphoneSource == "live" && liveContainsMusic) {
                         sessionMixCompatible = false
                         sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
