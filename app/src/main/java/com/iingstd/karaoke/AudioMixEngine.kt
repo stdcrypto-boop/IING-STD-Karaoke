@@ -259,7 +259,18 @@ object AudioMixEngine {
                 (highPassed - airLow) * clarity * 0.12
             // Studio mode keeps the original timbre and dynamics: no presence/air boosts,
             // no artificial compression or makeup gain. Only remove sub-bass/rumble.
-            if (naturalStudio) return highPassed
+            if (naturalStudio) {
+                // Subtle corrective tone shaping for an already-good LIVE OTG input.
+                // Cut a little boxy low-mid energy without artificial reverb,
+                // then add a restrained upper-mid presence for intelligibility.
+                val lessBoxy = highPassed - lowMid * 0.10
+                val clearer = lessBoxy + (highPassed - presenceLow) * 0.045
+                // Gentle peak control only on very loud syllables. Unlike the
+                // previous compressor this preserves normal vocal dynamics.
+                val peak = kotlin.math.abs(clearer)
+                return if (peak > 0.72) kotlin.math.sign(clearer) *
+                    (0.72 + (peak - 0.72) * 0.60) else clearer
+            }
             val level = kotlin.math.abs(shaped)
             val smoothing = if (level > envelope) attack else release
             envelope = smoothing * envelope + (1.0 - smoothing) * level
