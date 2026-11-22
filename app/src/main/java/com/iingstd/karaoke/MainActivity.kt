@@ -317,8 +317,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
                                 karaokeVideoId?.let { selectedId ->
-                                    Text("Lirik mengikuti video karaoke yang dipilih. Gunakan video berlabel karaoke + lirik.", color = Color.LightGray, fontSize = 12.sp)
-                                    if (karaokePlayerError.isNotBlank()) Text(karaokePlayerError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
+                                        if (karaokePlayerError.isNotBlank()) Text(karaokePlayerError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
                                     key(selectedId) {
                                         AndroidView(
                                             factory = { context ->
@@ -360,9 +359,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         )
                                     }
-                                    Text("Lirik hanya tersedia jika videonya memuat lirik. Video yang membatasi embed mungkin tidak dapat diputar.",
-                                        color = Color.LightGray, fontSize = 12.sp)
-                                }
+                                    }
                                 if (karaokeVideoId == null && internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                 if (internalBrowserError.isNotBlank()) {
                                     Text(internalBrowserError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
@@ -470,8 +467,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Text("🎤 IING STD KARAOKE", color = Pink, fontWeight = FontWeight.Bold, fontSize = 24.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("Your stage. Your voice.", color = Color.LightGray)
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         listOf("Offline", "Online").forEach { item ->
                             Button(onClick = { mode = item }, colors = ButtonDefaults.buttonColors(
@@ -569,8 +565,6 @@ class MainActivity : ComponentActivity() {
                                 error = ""
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
-                        Text("Pilih judul dari katalog online di atas, lalu pilih video karaoke. Beberapa video YouTube membatasi pemutaran di WebView.",
-                            color = Color.LightGray, fontSize = 12.sp)
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
