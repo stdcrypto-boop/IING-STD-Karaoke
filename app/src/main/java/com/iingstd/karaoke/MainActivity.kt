@@ -98,6 +98,10 @@ class MainActivity : ComponentActivity() {
             DisposableEffect(player) { onDispose { player.release() } }
             val library = remember { SongLibrary(this) }
             val recorder = remember { VoiceRecorder(this) }
+            val wiredMonitor = remember { WiredVocalMonitor(this) }
+            DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
+            var monitorEnabled by remember { mutableStateOf(false) }
+            var monitorVolume by remember { mutableFloatStateOf(0.5f) }
             var recording by remember { mutableStateOf(false) }
             var recordingPaused by remember { mutableStateOf(false) }
             var microphoneLevel by remember { mutableFloatStateOf(0f) }
@@ -208,6 +212,8 @@ class MainActivity : ComponentActivity() {
             var showMicOptions by remember { mutableStateOf(false) }
             var showMixOptions by remember { mutableStateOf(false) }
             fun beginRecording() {
+                wiredMonitor.stop()
+                monitorEnabled = false
                 try {
                     if (youtubeVideoId != null) {
                         recordingStatus = "Rekaman dengan musik YouTube belum didukung. Pilih MP3 atau MP4 offline terlebih dahulu."
@@ -740,6 +746,19 @@ class MainActivity : ComponentActivity() {
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("🎧 Suara balik vokal headphone kabel (uji monitoring)", color = Pink, fontWeight = FontWeight.Bold)
+                    Text("Mode uji: dengarkan mikrofon melalui headphone kabel. Matikan sebelum merekam; monitoring dan rekaman bersamaan belum tersedia.", color = Color.LightGray, fontSize = 12.sp)
+                    Slider(value = monitorVolume, onValueChange = { monitorVolume = it; wiredMonitor.setVolume(it) }, enabled = !recording)
+                    OutlinedButton(onClick = {
+                        if (monitorEnabled) { wiredMonitor.stop(); monitorEnabled = false }
+                        else if (recording) recordingStatus = "Selesaikan rekaman sebelum menguji monitoring."
+                        else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) recordingStatus = "Berikan izin mikrofon melalui tombol rekaman terlebih dahulu."
+                        else {
+                            wiredMonitor.setVolume(monitorVolume)
+                            monitorEnabled = wiredMonitor.start()
+                            recordingStatus = if (monitorEnabled) "Monitoring headphone kabel aktif (mode uji)." else "Hubungkan headphone kabel/USB dan periksa izin mikrofon."
+                        }
+                    }, enabled = !recording, modifier = Modifier.fillMaxWidth()) { Text(if (monitorEnabled) "⏹ Matikan suara balik" else "🎧 Uji suara balik headphone") }
                     Text("Level mikrofon saat merekam", color = Pink)
                     LinearProgressIndicator(
                         progress = { microphoneLevel },
