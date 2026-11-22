@@ -34,7 +34,8 @@ object AudioMixEngine {
         vocalClarity: Float = 0.5f,
         naturalStudio: Boolean = false,
         musicDelayMs: Long = 0L,
-        cleanExternal: Boolean = false
+        cleanExternal: Boolean = false,
+        vocalPriority: Boolean = true
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..6f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
@@ -95,6 +96,9 @@ object AudioMixEngine {
                         val vocalBoost = if (naturalStudio || cleanExternal) 1.0 else estimateVocalBoost(vocal, voice)
                         val effectiveVoiceGain = voiceGain * vocalBoost
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
+                        // Music ducking follows the vocal envelope smoothly, without
+                        // modifying or re-recording the original vocal track.
+                        var vocalEnvelope = 0.0
                         for (frame in 0 until voice.frames) {
                             val pos = offset.toDouble() + (frame.toDouble() - musicDelayMs.coerceIn(-2000L, 2000L) * rate / 1000.0) * backing.sampleRate / rate
                             val withinMusic = pos >= 0.0 && pos < backing.frames.toDouble()
@@ -118,7 +122,11 @@ object AudioMixEngine {
                                 // making the mix sound boxy and pumping.
                                 val musicBus = (if (cleanExternal) musicSample / 32768.0 else musicProcessor[channel].process(musicSample / 32768.0)) * balancedMusicGain
                                 val vocalBus = voiceSample * effectiveVoiceGain
-                                val combined = (musicBus + vocalBus) * (if (naturalStudio || cleanExternal) 0.78 else 0.90)
+                                val magnitude = kotlin.math.abs(voiceSample)
+                                val envelopeRate = if (magnitude > vocalEnvelope) 0.008 else 0.00006
+                                vocalEnvelope += (magnitude - vocalEnvelope) * envelopeRate
+                                val duck = if (vocalPriority) (vocalEnvelope / 0.12).coerceIn(0.0, 1.0) * 0.38 else 0.0
+                                val combined = (musicBus * (1.0 - duck) + vocalBus) * (if (naturalStudio || cleanExternal) 0.78 else 0.90)
                                 val mixed = ((if (naturalStudio || cleanExternal) combined.coerceIn(-0.98, 0.98) else softLimit(combined)) * fade * 32767.0)
                                     .toInt().coerceIn(-32768, 32767)
                                 if (block.remaining() < 2) {
