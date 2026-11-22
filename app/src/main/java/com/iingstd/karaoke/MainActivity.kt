@@ -872,6 +872,22 @@ class MainActivity : ComponentActivity() {
                     if (microphoneSource == "live") {
                         Text("⚠️ Mode LIVE: monitoring vokal melalui soundcard, bukan aplikasi. Matikan fitur suara balik agar tidak delay atau kresek.", color = Pink, fontSize = 12.sp)
                     }
+                    val audioInputs = (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                        .getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+                    val detectedUsbCard = audioInputs.any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE ||
+                            it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                    }
+                    val detectedWiredMic = audioInputs.any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET
+                    }
+                    Text(
+                        if (detectedUsbCard) "🎛 Smart Audio: USB soundcard terdeteksi • efek tambahan tidak diaktifkan otomatis"
+                        else if (detectedWiredMic) "🎧 Smart Audio: mikrofon headset terdeteksi"
+                        else "📱 Smart Audio: input HP / perangkat default",
+                        color = Pink, fontWeight = FontWeight.Bold, fontSize = 12.sp
+                    )
+                    Text("Deteksi ini mengenali perangkat, bukan tombol EQ/reverb fisik. Bila soundcard sudah punya monitoring, biarkan suara balik aplikasi nonaktif.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎧 Rekam + dengar vokal bersamaan (headphone kabel)", color = Pink, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = recordWithWiredMonitor, onCheckedChange = { recordWithWiredMonitor = it }, enabled = !recording)
