@@ -70,8 +70,8 @@ class WiredCaptureRecorder(private val context: Context) {
             failure = null
             paused.set(false)
             running.set(true)
-            val capture = input
-            val monitor = output
+            val capture = requireNotNull(input)
+            val monitor = requireNotNull(output)
             thread = Thread {
                 var bytes = 0L
                 try {
