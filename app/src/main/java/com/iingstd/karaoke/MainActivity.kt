@@ -885,7 +885,8 @@ class MainActivity : ComponentActivity() {
                                                 try {
                                                     AudioMixEngine.mixToWav(
                                                         this@MainActivity, backing, saved, backingStart,
-                                                        destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity
+                                                        destination, selectedMusicGain, selectedVoiceGain, if (studioNaturalVocal) false else smoothVocal, if (studioNaturalVocal) 0.15f else vocalClarity,
+                                                        studioNaturalVocal
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
