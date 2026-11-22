@@ -28,7 +28,7 @@ class WiredCaptureRecorder(private val context: Context) {
     private var failure: Throwable? = null
     @Volatile private var monitorSmoothGain = 1f
 
-    fun setMonitorVolume(gain: Float) { monitorGain = gain.coerceIn(0f, 1f)
+    fun setMonitorVolume(gain: Float) { monitorGain = gain.coerceIn(0f, 2f)
             monitorSmoothGain = 1f }
     fun peakLevel() = peak
     fun isActive() = running.get()
@@ -39,7 +39,8 @@ class WiredCaptureRecorder(private val context: Context) {
         return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull {
             it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
                 it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                it.type == AudioDeviceInfo.TYPE_USB_DEVICE
         }
     }
 
@@ -81,7 +82,7 @@ class WiredCaptureRecorder(private val context: Context) {
             file = destination
             record = input
             playback = output
-            monitorGain = gain.coerceIn(0f, 1f)
+            monitorGain = gain.coerceIn(0f, 2f)
             failure = null
             paused.set(false)
             running.set(true)
