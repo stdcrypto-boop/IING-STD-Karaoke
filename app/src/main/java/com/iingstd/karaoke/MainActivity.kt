@@ -298,6 +298,84 @@ class MainActivity : ComponentActivity() {
                     Modifier.fillMaxSize().background(Dark).verticalScroll(rememberScrollState()).padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Open the selected title immediately in a full-screen in-app browser.
+                    // Keep the existing karaoke controls intact underneath.
+                    internalSearchUrl?.let { searchUrl ->
+                        androidx.compose.ui.window.Dialog(
+                            onDismissRequest = {
+                                internalSearchUrl = null
+                                internalBrowserError = ""
+                            },
+                            properties = androidx.compose.ui.window.DialogProperties(
+                                usePlatformDefaultWidth = false
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().background(Dark).padding(12.dp)
+                            ) {
+                                Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
+                                if (internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                if (internalBrowserError.isNotBlank()) {
+                                    Text(internalBrowserError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = {
+                                        internalBrowser?.let { if (it.canGoBack()) it.goBack() }
+                                    }) { Text("← Kembali") }
+                                    TextButton(onClick = { internalBrowser?.reload() }) { Text("↻ Ulang") }
+                                    TextButton(onClick = {
+                                        internalSearchUrl = null
+                                        internalBrowserError = ""
+                                    }) { Text("✕ Tutup") }
+                                }
+                                key(searchUrl) {
+                                    AndroidView(
+                                        factory = { context ->
+                                            WebView(context).apply {
+                                                settings.javaScriptEnabled = true
+                                                settings.domStorageEnabled = true
+                                                settings.loadsImagesAutomatically = true
+                                                settings.mediaPlaybackRequiresUserGesture = true
+                                                webChromeClient = WebChromeClient()
+                                                webViewClient = object : WebViewClient() {
+                                                    override fun onPageStarted(
+                                                        view: WebView?, url: String?, favicon: android.graphics.Bitmap?
+                                                    ) {
+                                                        internalBrowserLoading = true
+                                                        internalBrowserError = ""
+                                                    }
+                                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                                        internalBrowserLoading = false
+                                                    }
+                                                    override fun onReceivedError(
+                                                        view: WebView?,
+                                                        request: android.webkit.WebResourceRequest?,
+                                                        error: android.webkit.WebResourceError?
+                                                    ) {
+                                                        if (request?.isForMainFrame == true) {
+                                                            internalBrowserLoading = false
+                                                            internalBrowserError = "Halaman gagal dimuat. Periksa internet atau muat ulang."
+                                                        }
+                                                    }
+                                                }
+                                                internalBrowser = this
+                                                loadUrl(searchUrl)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                        onRelease = { webView ->
+                                            if (internalBrowser === webView) internalBrowser = null
+                                            webView.stopLoading()
+                                            webView.loadUrl("about:blank")
+                                            webView.destroy()
+                                        }
+                                    )
+                                }
+                                Text("Pilih video karaoke di hasil pencarian. Pemutaran tergantung izin video YouTube.",
+                                    color = Color.LightGray, fontSize = 12.sp)
+                            }
+                        }
+                    }
                     Text("🎤 IING STD KARAOKE", color = Pink, fontWeight = FontWeight.Bold, fontSize = 24.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("Your stage. Your voice.", color = Color.LightGray)
@@ -369,7 +447,7 @@ class MainActivity : ComponentActivity() {
                     }
                     if (mode == "Offline") {
                         Text("🎼 Karaoke offline siap nyanyi", color = Pink, fontWeight = FontWeight.Bold)
-                        Text("3 musik instrumental original tersedia tanpa internet. Pilih lagu untuk memutar musik dan melihat lirik.",
+                        Text("${OfflineKaraoke.tracks.size} musik instrumental original tersedia tanpa internet. Pilih lagu untuk memutar musik dan melihat lirik.",
                             color = Color.LightGray, fontSize = 12.sp)
                         OfflineKaraoke.tracks.forEach { song ->
                             OutlinedButton(
@@ -425,64 +503,6 @@ class MainActivity : ComponentActivity() {
                         }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
                         Text("Hasil pencarian dibuka di dalam aplikasi. Ketuk video untuk mencoba memutar. Beberapa video YouTube membatasi pemutaran di WebView.",
                             color = Color.LightGray, fontSize = 12.sp)
-                        internalSearchUrl?.let { searchUrl ->
-                            Text("🌐 Penelusuran karaoke dalam aplikasi", color = Pink, fontWeight = FontWeight.Bold)
-                            if (internalBrowserLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            if (internalBrowserError.isNotBlank()) {
-                                Text(internalBrowserError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                TextButton(onClick = { internalBrowser?.let { if (it.canGoBack()) it.goBack() } }) {
-                                    Text("← Kembali")
-                                }
-                                TextButton(onClick = { internalBrowser?.reload() }) { Text("↻ Muat ulang") }
-                                TextButton(onClick = {
-                                    internalSearchUrl = null
-                                    internalBrowserError = ""
-                                }) { Text("✕ Tutup") }
-                            }
-                            key(searchUrl) {
-                                AndroidView(
-                                    factory = { context ->
-                                        WebView(context).apply {
-                                            settings.javaScriptEnabled = true
-                                            settings.domStorageEnabled = true
-                                            settings.loadsImagesAutomatically = true
-                                            settings.mediaPlaybackRequiresUserGesture = true
-                                            webChromeClient = WebChromeClient()
-                                            webViewClient = object : WebViewClient() {
-                                                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                                    internalBrowserLoading = true
-                                                    internalBrowserError = ""
-                                                }
-                                                override fun onPageFinished(view: WebView?, url: String?) {
-                                                    internalBrowserLoading = false
-                                                }
-                                                override fun onReceivedError(
-                                                    view: WebView?,
-                                                    request: android.webkit.WebResourceRequest?,
-                                                    error: android.webkit.WebResourceError?
-                                                ) {
-                                                    if (request?.isForMainFrame == true) {
-                                                        internalBrowserLoading = false
-                                                        internalBrowserError = "Halaman gagal dimuat. Periksa internet atau tekan Muat ulang."
-                                                    }
-                                                }
-                                            }
-                                            internalBrowser = this
-                                            loadUrl(searchUrl)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth().height(460.dp),
-                                    onRelease = { webView ->
-                                        if (internalBrowser === webView) internalBrowser = null
-                                        webView.stopLoading()
-                                        webView.loadUrl("about:blank")
-                                        webView.destroy()
-                                    }
-                                )
-                            }
-                        }
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
