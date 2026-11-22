@@ -268,7 +268,8 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode == Player.REPEAT_MODE_OFF
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
-                    recorder.microphoneSource = if (microphoneSource == "live") "headset" else microphoneSource
+                    // For analog LIVE, let Android choose the same capture route used by the phone recorder.
+                    recorder.microphoneSource = if (microphoneSource == "live") "system" else microphoneSource
                     if (microphoneSource == "live" && liveContainsMusic) {
                         sessionMixCompatible = false
                         sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
