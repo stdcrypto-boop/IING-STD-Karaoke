@@ -31,7 +31,8 @@ object AudioMixEngine {
         backingGain: Float = 0.65f,
         voiceGain: Float = 1f,
         smoothVocal: Boolean = true,
-        vocalClarity: Float = 0.5f
+        vocalClarity: Float = 0.5f,
+        naturalStudio: Boolean = false
     ): File {
         require(backingGain in 0f..1f && voiceGain in 0f..6f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
@@ -89,7 +90,7 @@ object AudioMixEngine {
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
                         val balance = estimateBalance(music, vocal, backing, voice, offset)
                         val balancedMusicGain = (backingGain * balance).coerceIn(0.10, 0.90)
-                        val vocalBoost = estimateVocalBoost(vocal, voice)
+                        val vocalBoost = if (naturalStudio) 1.0 else estimateVocalBoost(vocal, voice)
                         val effectiveVoiceGain = voiceGain * vocalBoost
                         val fadeFrames = (rate / 100).coerceAtLeast(1)
                         for (frame in 0 until voice.frames) {
