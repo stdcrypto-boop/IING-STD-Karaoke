@@ -8,6 +8,8 @@ import android.net.Uri
 import java.io.RandomAccessFile
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -34,10 +36,17 @@ object AudioMixEngine {
         require(backingGain in 0f..1f && voiceGain in 0f..1f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
         var voiceTemp: File? = null
+        var remoteBackingTemp: File? = null
         try {
             val vocalTemp = File.createTempFile("voice-", ".pcm", context.cacheDir)
             voiceTemp = vocalTemp
-            val backing = decode(context, backingUri, backingTemp)
+            val resolvedBacking = if (backingUri.scheme == "https") {
+                val remote = File.createTempFile("stream-backing-", ".audio", context.cacheDir)
+                remoteBackingTemp = remote
+                downloadAuthorizedBacking(backingUri.toString(), remote)
+                Uri.fromFile(remote)
+            } else backingUri
+            val backing = decode(context, resolvedBacking, backingTemp)
             val voice = decode(context, voiceUri, vocalTemp)
             val rate = voice.sampleRate
             require(rate > 0 && backing.sampleRate > 0) { "Sample rate audio tidak valid" }
@@ -122,6 +131,39 @@ object AudioMixEngine {
         } finally {
             backingTemp.delete()
             voiceTemp?.delete()
+            remoteBackingTemp?.delete()
+        }
+    }
+
+    /** Temporarily cache user-provided HTTPS audio for aligned post-record mixing. */
+    private fun downloadAuthorizedBacking(url: String, destination: File) {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 20000
+            instanceFollowRedirects = false
+        }
+        try {
+            require(connection.responseCode == HttpURLConnection.HTTP_OK) {
+                "Server tidak mengizinkan audio untuk mixing"
+            }
+            val length = connection.contentLengthLong
+            require(length < 0 || length <= 150L * 1024 * 1024) { "Audio melebihi 150 MB" }
+            connection.inputStream.use { input ->
+                FileOutputStream(destination).use { output ->
+                    val buffer = ByteArray(32768)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= 150L * 1024 * 1024) { "Audio melebihi 150 MB" }
+                        output.write(buffer, 0, count)
+                    }
+                    require(total > 0) { "Audio streaming kosong" }
+                }
+            }
+        } finally {
+            connection.disconnect()
         }
     }
 
