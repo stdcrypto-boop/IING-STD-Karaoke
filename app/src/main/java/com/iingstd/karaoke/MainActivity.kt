@@ -434,6 +434,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
+                    if (mode == "Online") {
                     Text("⭐ Daftar lagu dangdut pilihan", color = Pink, fontWeight = FontWeight.Bold)
                     Text("Judul favorit untuk pencarian karaoke online. Belum termasuk instrumental offline.",
                         color = Color.LightGray, fontSize = 12.sp)
@@ -491,6 +492,7 @@ class MainActivity : ComponentActivity() {
                             }) { Text("🎤 " + artist) }
                         }
                     }
+                    }
                     if (mode == "Offline") {
                         Text("🎼 Karaoke offline siap nyanyi", color = Pink, fontWeight = FontWeight.Bold)
                         Text("${OfflineKaraoke.tracks.size} musik instrumental original tersedia tanpa internet. Pilih lagu untuk memutar musik dan melihat lirik.",
@@ -547,7 +549,7 @@ class MainActivity : ComponentActivity() {
                                 error = ""
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
-                        Text("Hasil pencarian dibuka di dalam aplikasi. Ketuk video untuk mencoba memutar. Beberapa video YouTube membatasi pemutaran di WebView.",
+                        Text("Pilih judul dari katalog online di atas, lalu pilih video karaoke. Beberapa video YouTube membatasi pemutaran di WebView.",
                             color = Color.LightGray, fontSize = 12.sp)
                         OutlinedTextField(value = url, onValueChange = { url = it },
                             label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
