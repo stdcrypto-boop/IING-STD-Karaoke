@@ -1008,6 +1008,7 @@ class MainActivity : ComponentActivity() {
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Penguatan vokal: ${"%.1f".format(voiceGain)}×", color = Color.LightGray)
                         Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..3f)
+                        Text("Sinkronisasi awal otomatis: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (perkiraan waktu mulai, bukan kalibrasi latensi perangkat)", color = Color.LightGray, fontSize = 12.sp)
                         Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms", color = Color.LightGray)
                         Slider(
                             value = syncAdjustmentMs,
