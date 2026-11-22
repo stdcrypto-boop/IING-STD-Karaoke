@@ -276,6 +276,32 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) { error = e.message ?: "Tidak dapat membuka audio" }
                 }
             }
+            val bulkAudioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+                var added = 0
+                uris.forEach { uri ->
+                    try {
+                        runCatching {
+                            contentResolver.takePersistableUriPermission(
+                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            )
+                        }
+                        val title = runCatching {
+                            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                                ?.use { cursor ->
+                                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                                }
+                        }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Lagu offline"
+                        library.record(SavedSong(title, uri.toString(), false, System.currentTimeMillis()))
+                        added++
+                    } catch (_: Exception) { }
+                }
+                history = library.history()
+                if (added > 0) {
+                    error = "$added lagu ditambahkan ke koleksi offline. Pilih lagu dari riwayat untuk memutar."
+                } else if (uris.isNotEmpty()) {
+                    error = "Tidak dapat menambahkan file. Pastikan file MP3/MP4 dapat dibuka."
+                }
+            }
             DisposableEffect(player) {
                 val listener = object : Player.Listener {
                     override fun onPlayerError(exception: PlaybackException) {
@@ -545,6 +571,10 @@ class MainActivity : ComponentActivity() {
                         Text("🎼 Karaoke offline dari file HP", color = Pink, fontWeight = FontWeight.Bold)
                         Text("Pilih MP3 atau MP4 karaoke lengkap dari penyimpanan HP. Instrumental percobaan telah dihapus dari daftar.",
                             color = Color.LightGray, fontSize = 12.sp)
+                        OutlinedButton(
+                            onClick = { bulkAudioPicker.launch(arrayOf("audio/*", "video/*")) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("📚 Tambahkan banyak lagu MP3/MP4 sekaligus") }
                         Button(onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) }, modifier = Modifier.fillMaxWidth()) {
                             Text("📁 Pilih MP3 atau video MP4 dari HP")
                         }
