@@ -28,9 +28,10 @@ object AudioMixEngine {
         destination: File,
         backingGain: Float = 0.65f,
         voiceGain: Float = 1f,
-        smoothVocal: Boolean = true
+        smoothVocal: Boolean = true,
+        vocalClarity: Float = 0.5f
     ): File {
-        require(backingGain in 0f..1f && voiceGain in 0f..1f)
+        require(backingGain in 0f..1f && voiceGain in 0f..1f && vocalClarity in 0f..1f)
         val backingTemp = File.createTempFile("backing-", ".pcm", context.cacheDir)
         var voiceTemp: File? = null
         try {
@@ -75,7 +76,7 @@ object AudioMixEngine {
                         header.putInt(bytes)
                         output.write(header.array())
                         val block = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN)
-                        val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal) }
+                        val vocalProcessor = Array(2) { VocalProcessor(rate, smoothVocal, vocalClarity) }
                         val musicProcessor = Array(2) { MusicProcessor(rate) }
                         val balance = estimateBalance(music, vocal, backing, voice, offset)
                         val balancedMusicGain = (backingGain * balance).coerceIn(0.20, 0.90)
@@ -156,22 +157,30 @@ object AudioMixEngine {
     }
 
     /** Remove microphone rumble and gently compress loud vocal syllables. */
-    private class VocalProcessor(sampleRate: Int, private val smooth: Boolean) {
+    private class VocalProcessor(sampleRate: Int, private val smooth: Boolean, private val clarity: Float) {
         private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (smooth) 110.0 else 75.0) / sampleRate)
         private val attack = kotlin.math.exp(-1.0 / (sampleRate * 0.008))
         private val release = kotlin.math.exp(-1.0 / (sampleRate * 0.120))
         private var lowPass = 0.0
         private var envelope = 0.0
+        private val presenceAlpha = kotlin.math.exp(-2.0 * Math.PI * 1700.0 / sampleRate)
+        private val airAlpha = kotlin.math.exp(-2.0 * Math.PI * 4300.0 / sampleRate)
+        private var presenceLow = 0.0
+        private var airLow = 0.0
 
         fun process(sample: Double): Double {
             lowPass = (1.0 - hpAlpha) * sample + hpAlpha * lowPass
             val highPassed = sample - lowPass
-            val level = kotlin.math.abs(highPassed)
+            presenceLow = (1.0 - presenceAlpha) * highPassed + presenceAlpha * presenceLow
+            airLow = (1.0 - airAlpha) * highPassed + airAlpha * airLow
+            val shaped = highPassed + (highPassed - presenceLow) * clarity * 0.24 +
+                (highPassed - airLow) * clarity * 0.12
+            val level = kotlin.math.abs(shaped)
             val smoothing = if (level > envelope) attack else release
             envelope = smoothing * envelope + (1.0 - smoothing) * level
             val threshold = if (smooth) 0.12 else 0.20
             val gain = if (envelope > threshold) kotlin.math.sqrt(threshold / envelope) else 1.0
-            return highPassed * gain * (if (smooth) 1.10 else 1.0)
+            return shaped * gain * (if (smooth) 1.07 else 1.0)
         }
     }
 
