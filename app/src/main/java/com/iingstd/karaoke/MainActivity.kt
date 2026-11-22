@@ -149,6 +149,7 @@ class MainActivity : ComponentActivity() {
             var mixStatus by remember { mutableStateOf("") }
             var musicGain by remember { mutableFloatStateOf(0.85f) }
             var voiceGain by remember { mutableFloatStateOf(1.15f) }
+            var vocalPriority by remember { mutableStateOf(true) }
             var syncAdjustmentMs by remember { mutableFloatStateOf(0f) }
             var autoMusicDelayMs by remember { mutableLongStateOf(0L) }
             var mixedFile by remember {
@@ -971,7 +972,8 @@ class MainActivity : ComponentActivity() {
                                                         if (smartAudioEnabled && sessionExternalAudio) 0f else if (studioNaturalVocal) 0.15f else vocalClarity,
                                                         if (smartAudioEnabled && sessionExternalAudio) false else studioNaturalVocal,
                                                         autoMusicDelayMs + syncAdjustmentMs.toLong(),
-                                                        cleanExternal = smartAudioEnabled && sessionExternalAudio
+                                                        cleanExternal = smartAudioEnabled && sessionExternalAudio,
+                                                        vocalPriority = vocalPriority
                                                     )
                                                 } catch (e: Exception) {
                                                     destination.delete()
@@ -1084,7 +1086,13 @@ class MainActivity : ComponentActivity() {
                         Text("Musik: ${(musicGain * 100).toInt()}%", color = Color.LightGray)
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
                         Text("Penguatan vokal: ${"%.1f".format(voiceGain)}×", color = Color.LightGray)
-                        Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..3f)
+                        Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..6f)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = vocalPriority, onCheckedChange = { vocalPriority = it })
+                            Spacer(Modifier.width(8.dp))
+                            Text("Utamakan vokal: musik otomatis sedikit mengecil saat bernyanyi", color = Color.LightGray, fontSize = 12.sp)
+                        }
+                        Text("Sesudah mengubah penguatan, tekan Gabungkan Vokal dan Musik lagi. Slider tidak mengubah file hasil mixing lama secara langsung.", color = Color.LightGray, fontSize = 12.sp)
                         Text("Sinkronisasi awal terukur: ${recordingPrefs.getLong("last_auto_music_delay_ms", 0L)} ms (perkiraan waktu mulai, tanpa acuan tetap)", color = Color.LightGray, fontSize = 12.sp)
                         Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms (geser kanan untuk menunda musik)", color = Color.LightGray)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1141,7 +1149,8 @@ class MainActivity : ComponentActivity() {
                                                     vocalClarity = if (smartAudioEnabled && sessionExternalAudio) 0f else 0.15f,
                                                     naturalStudio = !(smartAudioEnabled && sessionExternalAudio),
                                                     musicDelayMs = selectedAutoDelayMs + selectedSyncMs,
-                                                    cleanExternal = smartAudioEnabled && sessionExternalAudio
+                                                    cleanExternal = smartAudioEnabled && sessionExternalAudio,
+                                                    vocalPriority = vocalPriority
                                                 )
                                             } catch (e: Exception) {
                                                 destination.delete()
