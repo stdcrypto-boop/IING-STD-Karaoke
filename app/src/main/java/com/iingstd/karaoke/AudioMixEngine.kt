@@ -231,7 +231,7 @@ object AudioMixEngine {
 
     /** Remove microphone rumble and gently compress loud vocal syllables. */
     private class VocalProcessor(sampleRate: Int, private val smooth: Boolean, private val clarity: Float, private val naturalStudio: Boolean) {
-        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (naturalStudio) 95.0 else if (smooth) 95.0 else 75.0) / sampleRate)
+        private val hpAlpha = kotlin.math.exp(-2.0 * Math.PI * (if (naturalStudio) 105.0 else if (smooth) 95.0 else 75.0) / sampleRate)
         private val attack = kotlin.math.exp(-1.0 / (sampleRate * 0.008))
         private val release = kotlin.math.exp(-1.0 / (sampleRate * 0.120))
         private var lowPass = 0.0
@@ -240,8 +240,8 @@ object AudioMixEngine {
         private val airAlpha = kotlin.math.exp(-2.0 * Math.PI * 4300.0 / sampleRate)
         private var presenceLow = 0.0
         private var airLow = 0.0
-        private val bodyLowAlpha = kotlin.math.exp(-2.0 * Math.PI * 180.0 / sampleRate)
-        private val bodyHighAlpha = kotlin.math.exp(-2.0 * Math.PI * 650.0 / sampleRate)
+        private val bodyLowAlpha = kotlin.math.exp(-2.0 * Math.PI * 220.0 / sampleRate)
+        private val bodyHighAlpha = kotlin.math.exp(-2.0 * Math.PI * 700.0 / sampleRate)
         private var bodyLow = 0.0
         private var bodyHigh = 0.0
 
@@ -263,8 +263,8 @@ object AudioMixEngine {
                 // Subtle corrective tone shaping for an already-good LIVE OTG input.
                 // Cut a little boxy low-mid energy without artificial reverb,
                 // then add a restrained upper-mid presence for intelligibility.
-                val lessBoxy = highPassed - lowMid * 0.27
-                val clearer = lessBoxy + (highPassed - presenceLow) * 0.025
+                val lessBoxy = highPassed - lowMid * 0.40
+                val clearer = lessBoxy + (highPassed - presenceLow) * 0.035
                 // Gentle peak control only on very loud syllables. Unlike the
                 // previous compressor this preserves normal vocal dynamics.
                 val peak = kotlin.math.abs(clearer)
