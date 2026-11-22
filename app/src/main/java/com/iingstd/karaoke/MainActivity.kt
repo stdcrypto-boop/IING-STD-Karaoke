@@ -562,21 +562,29 @@ class MainActivity : ComponentActivity() {
                         OutlinedTextField(value = onlineSearch, onValueChange = { onlineSearch = it },
                             label = { Text("Judul lagu atau penyanyi") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
-                        Button(onClick = {
-                            val query = onlineSearch.trim()
-                            if (query.isBlank()) {
-                                error = "Tulis judul lagu terlebih dahulu"
-                            } else {
-                                karaokeVideoId = null
-                                karaokePlayerError = ""
-                                internalBrowserError = ""
-                            internalSearchUrl = Uri.parse("https://m.youtube.com/results")
-                                    .buildUpon().appendQueryParameter("search_query", query + " karaoke tanpa vokal minus one lirik").build().toString()
-                                error = ""
-                            }
-                        }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Cari lagu di YouTube") }
+                        Button(
+                            onClick = {
+                                val query = onlineSearch.trim()
+                                if (query.isBlank()) {
+                                    error = "Tulis judul lagu terlebih dahulu"
+                                } else {
+                                    val search = Uri.parse("https://www.youtube.com/results")
+                                        .buildUpon()
+                                        .appendQueryParameter("search_query", query + " karaoke tanpa vokal lirik")
+                                        .build()
+                                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, search)) }
+                                        .onFailure { error = "Tidak dapat membuka YouTube: " + (it.message ?: "aplikasi tidak tersedia") }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) { Text("▶ Cari karaoke di YouTube (pemutar resmi)") }
+                        Text(
+                            "YouTube memakai pemutar resminya agar tidak terkena Error 153. Untuk streaming di dalam aplikasi, gunakan tautan langsung MP3/MP4 yang diizinkan.",
+                            color = Color.LightGray, fontSize = 12.sp
+                        )
                         OutlinedTextField(value = url, onValueChange = { url = it },
-                            label = { Text("Link otomatis dari Bagikan YouTube (opsional)") },
+                            label = { Text("Link streaming MP3/MP4 langsung (opsional)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
                             val link = url.trim()
