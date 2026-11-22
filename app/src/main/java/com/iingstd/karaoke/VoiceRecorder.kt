@@ -25,7 +25,7 @@ class VoiceRecorder(private val context: Context) {
     private var wiredSession = false
     var wiredMonitoringEnabled = false
     var wiredMonitorVolume = 0.5f
-    /** auto, usb, headset, or phone */
+    /** auto, system (analog LIVE), usb, headset, or phone */
     var microphoneSource = "auto"
     var routeNotice: String = ""
         private set
@@ -111,7 +111,8 @@ class VoiceRecorder(private val context: Context) {
                 }
                 // Avoid VOICE_COMMUNICATION processing and Bluetooth SCO for analog LIVE:
                 // both can add latency, aggressive noise gates and unpredictable routing.
-                val externalCapture = microphoneSource == "headset" ||
+                val externalCapture = microphoneSource == "system" ||
+                    microphoneSource == "headset" ||
                     microphoneSource == "usb" ||
                     (microphoneSource == "auto" && hasAnalogOrUsbInput)
                 r.setAudioSource(
@@ -138,12 +139,13 @@ class VoiceRecorder(private val context: Context) {
                         }
                         "headset" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
                         "phone" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+                        "system" -> null // No forced device; follow Android default route.
                         else -> inputs.firstOrNull {
                             it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
                                 it.type == AudioDeviceInfo.TYPE_USB_HEADSET
                         } ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
                     }
-                    if (external == null && microphoneSource != "auto") {
+                    if (external == null && microphoneSource != "auto" && microphoneSource != "system") {
                         routeNotice = "Input pilihan tidak dilaporkan Android. Rekaman memakai jalur input default; kemungkinan mikrofon HP. Periksa indikator vokal."
                     } else if (external != null && !r.setPreferredDevice(external)) {
                         routeNotice = "Android menolak pemilihan input. Rekaman memakai jalur default; periksa apakah vokal terdeteksi."
