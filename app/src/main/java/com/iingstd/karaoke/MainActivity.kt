@@ -51,7 +51,9 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 private val Pink = Color(0xFFFF5EAD)
-private val Dark = Color(0xFF100C1B)
+private val Dark = Color(0xFF263C50)
+private val BlueGreySurface = Color(0xFF344D63)
+private val BlueGreyButton = Color(0xFF405C73)
 
 class MainActivity : ComponentActivity() {
     private var incomingYouTubeLink by mutableStateOf<String?>(null)
@@ -319,7 +321,14 @@ class MainActivity : ComponentActivity() {
                     delay(250)
                 }
             }
-            MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Dark, surface = Color(0xFF21182D))) {
+            MaterialTheme(
+                colorScheme = darkColorScheme(primary = Pink, background = Dark, surface = BlueGreySurface),
+                shapes = Shapes(
+                    small = RoundedCornerShape(12.dp),
+                    medium = RoundedCornerShape(18.dp),
+                    large = RoundedCornerShape(26.dp)
+                )
+            ) {
                 Column(
                     Modifier.fillMaxSize().background(Dark).verticalScroll(rememberScrollState()).padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -521,7 +530,7 @@ class MainActivity : ComponentActivity() {
                                 shape = androidx.compose.foundation.shape.CircleShape,
                                 contentPadding = PaddingValues(0.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (mode == item) Pink else Color(0xFF392A47)
+                                    containerColor = if (mode == item) Pink else BlueGreyButton
                                 )
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -538,9 +547,14 @@ class MainActivity : ComponentActivity() {
                             color = Color.LightGray, fontSize = 12.sp)
                         OutlinedButton(
                             onClick = { bulkAudioPicker.launch(arrayOf("audio/*", "video/*")) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
                         ) { Text("📚 Tambahkan banyak lagu MP3/MP4 sekaligus") }
-                        Button(onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) }, modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = { audioPicker.launch(arrayOf("audio/*", "video/mp4", "video/*")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(26.dp)
+                        ) {
                             Text("📁 Pilih MP3 atau video MP4 dari HP")
                         }
                     } else {
@@ -663,11 +677,11 @@ class MainActivity : ComponentActivity() {
                         Text(formatTime(duration), color = Color.LightGray)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { player.seekTo((position - 10000).coerceAtLeast(0)) }) { Text("⏪ 10s") }
-                        Button(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
+                        Button(shape = RoundedCornerShape(14.dp), onClick = { player.seekTo((position - 10000).coerceAtLeast(0)) }) { Text("⏪ 10s") }
+                        Button(shape = RoundedCornerShape(26.dp), onClick = { if (player.isPlaying) player.pause() else player.play() }) {
                             Text(if (playing) "⏸ Jeda" else "▶ Putar")
                         }
-                        Button(onClick = { player.seekTo(position + 10000) }) { Text("10s ⏩") }
+                        Button(shape = RoundedCornerShape(14.dp), onClick = { player.seekTo(position + 10000) }) { Text("10s ⏩") }
                     }
                     TextButton(onClick = { showPlaybackOptions = !showPlaybackOptions }) {
                         Text(if (showPlaybackOptions) "▴ Tutup pengaturan pemutar" else "⚙ Pengaturan pemutar")
