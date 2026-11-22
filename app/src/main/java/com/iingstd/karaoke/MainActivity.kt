@@ -210,8 +210,8 @@ class MainActivity : ComponentActivity() {
                         return
                     }
                     val song = currentSong
-                    if (song == null || song.online) {
-                        recordingStatus = "Pilih MP3 atau MP4 offline dahulu agar hasil rekaman bisa berisi musik dan vokal."
+                    if (song == null || (song.online && Uri.parse(song.uri).scheme != "https")) {
+                        recordingStatus = "Pilih MP3/MP4 offline atau tautan HTTPS langsung yang mengizinkan rekaman."
                         return
                     }
                     // Restore the selected karaoke song after previewing vocal/mix output.
@@ -247,7 +247,7 @@ class MainActivity : ComponentActivity() {
                     recordingPausedMs = 0L
                     recordingStartedAt = android.os.SystemClock.elapsedRealtime()
                     recordingSeconds = 0
-                    recordingStatus = if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file") } == true) "Merekam vokal. Musik lokal akan digabung otomatis." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
+                    recordingStatus = if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file", "https") } == true) "Merekam vokal. Musik akan digabung otomatis setelah selesai." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
                 } catch (e: Exception) {
                     recordingStatus = "Gagal merekam: " + (e.message ?: "kesalahan audio")
                 }
@@ -769,7 +769,7 @@ class MainActivity : ComponentActivity() {
                                 // recording alone never contains ExoPlayer's music output.
                                 val backing = sessionSongUri?.let(Uri::parse)
                                 if (saved != null && sessionMixCompatible && backing != null &&
-                                    (backing.scheme == "content" || backing.scheme == "file")) {
+                                    (backing.scheme == "content" || backing.scheme == "file" || backing.scheme == "https")) {
                                     val backingStart = sessionStartPositionMs
                                     val selectedMusicGain = 0.75f
                                     val selectedVoiceGain = 0.95f
@@ -801,7 +801,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else if (saved != null) {
-                                    recordingStatus = "Vokal tersimpan. Musik hanya bisa digabung otomatis dari lagu lokal yang diputar normal tanpa jeda."
+                                    recordingStatus = "Vokal tersimpan. Musik hanya bisa digabung dari MP3/MP4 lokal atau HTTPS langsung yang diputar normal tanpa jeda."
                                 }
                             } catch (e: Exception) {
                                 recording = false
