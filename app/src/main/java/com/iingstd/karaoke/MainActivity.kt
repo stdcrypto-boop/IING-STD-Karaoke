@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
             }
             var externalMic by remember { mutableStateOf(false) }
             var microphoneSource by remember { mutableStateOf("auto") }
+            var liveContainsMusic by remember { mutableStateOf(true) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -268,6 +269,10 @@ class MainActivity : ComponentActivity() {
                     sessionMixWarning = if (sessionMixCompatible) "" else
                         "Mixing membutuhkan musik sedang diputar normal (kecepatan dan pitch 1×, tanpa repeat)"
                     recorder.microphoneSource = if (microphoneSource == "live") "headset" else microphoneSource
+                    if (microphoneSource == "live" && liveContainsMusic) {
+                        sessionMixCompatible = false
+                        sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
+                    }
                     recorder.wiredMonitoringEnabled = recordWithWiredMonitor && microphoneSource != "live"
                     recorder.wiredMonitorVolume = monitorVolume
                     recorder.start()
@@ -807,6 +812,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Text("Jika HP terhubung ke port LIVE1 soundcard lewat kabel analog, pilih Soundcard LIVE. Port ACCOMPANY biasanya input musik, bukan keluaran mic ke HP. Matikan suara balik aplikasi; dengarkan monitor langsung dari soundcard.", color = Color.LightGray, fontSize = 12.sp)
+                    if (microphoneSource == "live") {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = liveContainsMusic, onCheckedChange = { if (!recording) liveContainsMusic = it }, enabled = !recording)
+                            Text("LIVE1 sudah mengirim musik + vokal", color = Color.White, fontSize = 12.sp)
+                        }
+                        Text("Aktifkan jika rekaman LIVE1 sudah berisi musik dan vokal. Aplikasi tidak akan menambahkan musik lagi sehingga tidak bertabrakan. Matikan hanya jika LIVE1 mengirim vokal saja.", color = Color.LightGray, fontSize = 12.sp)
+                    }
                     Text("Sambungkan Bonkyo F999 Max melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
                         color = Color.LightGray, fontSize = 12.sp)
                     }
@@ -972,8 +984,8 @@ class MainActivity : ComponentActivity() {
                         if (showMixOptions) {
                         Text("Musik: ${(musicGain * 100).toInt()}%", color = Color.LightGray)
                         Slider(value = musicGain, onValueChange = { musicGain = it }, valueRange = 0f..1f)
-                        Text("Vokal: ${(voiceGain * 100).toInt()}%", color = Color.LightGray)
-                        Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..1f)
+                        Text("Penguatan vokal: ${"%.1f".format(voiceGain)}×", color = Color.LightGray)
+                        Slider(value = voiceGain, onValueChange = { voiceGain = it }, valueRange = 0f..3f)
                         Text("Koreksi sinkronisasi musik: ${syncAdjustmentMs.toInt()} ms", color = Color.LightGray)
                         Slider(
                             value = syncAdjustmentMs,
