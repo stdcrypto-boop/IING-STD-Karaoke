@@ -343,7 +343,23 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Text("🎤 Karaoke Online", color = Pink, fontWeight = FontWeight.Bold)
                                 karaokeVideoId?.let { selectedId ->
-                                        if (karaokePlayerError.isNotBlank()) Text(karaokePlayerError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
+                                        Text(
+                                        "Jika muncul Error 153, YouTube menolak pemutar tertanam. Gunakan tombol tonton di YouTube di bawah.",
+                                        color = Color.LightGray, fontSize = 12.sp
+                                    )
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://www.youtube.com/watch?v=$selectedId")
+                                            )
+                                            runCatching { startActivity(intent) }.onFailure {
+                                                karaokePlayerError = "Tidak dapat membuka video: " + (it.message ?: "aplikasi tidak tersedia")
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("▶ Tonton di YouTube (jika Error 153)") }
+                                    if (karaokePlayerError.isNotBlank()) Text(karaokePlayerError, color = Color(0xFFFF9E9E), fontSize = 12.sp)
                                     key(selectedId) {
                                         AndroidView(
                                             factory = { context ->
