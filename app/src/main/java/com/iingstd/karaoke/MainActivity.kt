@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
             var externalMic by remember { mutableStateOf(false) }
             var microphoneSource by remember { mutableStateOf("auto") }
             var liveContainsMusic by remember { mutableStateOf(false) }
-            var liveMusicLevel by remember { mutableFloatStateOf(0.55f) }
+            var liveMusicLevel by remember { mutableFloatStateOf(0.35f) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -825,7 +825,7 @@ class MainActivity : ComponentActivity() {
                     }
                     if (microphoneSource == "live") {
                         Text("Level musik LIVE1: ${(liveMusicLevel * 100).toInt()}% (kurangi bila musik bocor ke rekaman vokal)", color = Color.LightGray, fontSize = 12.sp)
-                        Slider(value = liveMusicLevel, onValueChange = { if (!recording) liveMusicLevel = it }, valueRange = 0.15f..1f, enabled = !recording)
+                        Slider(value = liveMusicLevel, onValueChange = { if (!recording) liveMusicLevel = it }, valueRange = 0f..1f, enabled = !recording)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = liveContainsMusic, onCheckedChange = { if (!recording) liveContainsMusic = it }, enabled = !recording)
                             Text("Rekaman LIVE1 sudah berisi musik + vokal (hindari musik dobel)", color = Color.White, fontSize = 12.sp)
@@ -872,8 +872,8 @@ class MainActivity : ComponentActivity() {
                                     val backingStart = sessionStartPositionMs
                                     // Phone-speaker mode prioritizes vocals and lowers clean backing gain.
                                     // It cannot fully remove speaker bleed already in the mic signal.
-                                    val selectedMusicGain = if (studioNaturalVocal) 0.55f else if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
-                                    val selectedVoiceGain = if (studioNaturalVocal) 1.0f else if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
+                                    val selectedMusicGain = if (studioNaturalVocal) 0.48f else if (recordingOnPhone) 0.52f else if (microphoneSource == "live") 0.32f else 0.40f
+                                    val selectedVoiceGain = if (studioNaturalVocal) 1.25f else if (recordingOnPhone) 1.15f else if (microphoneSource == "live") 2.0f else 1.65f
                                     mixing = true
                                     mixStatus = "Menggabungkan musik dan vokal otomatis…"
                                     mixScope.launch {
