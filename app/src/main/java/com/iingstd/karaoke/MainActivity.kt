@@ -116,6 +116,7 @@ class MainActivity : ComponentActivity() {
             var externalMic by remember { mutableStateOf(false) }
             var microphoneSource by remember { mutableStateOf("auto") }
             var liveContainsMusic by remember { mutableStateOf(false) }
+            var liveMusicLevel by remember { mutableFloatStateOf(0.55f) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -240,7 +241,7 @@ class MainActivity : ComponentActivity() {
                     pitch = 1f
                     player.repeatMode = Player.REPEAT_MODE_OFF
                     repeatOne = false
-                    player.play()
+                    // Start capture before playback so the recording does not miss the song opening.
                     // Speaker playback can leak into the built-in microphone and be
                     // duplicated when the clean backing track is mixed afterward.
                     val inputManager = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
@@ -258,7 +259,7 @@ class MainActivity : ComponentActivity() {
                     recordingOnPhone = !hasExternalInput && !hasWiredOutput
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
-                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else volume
+                    player.volume = if (microphoneSource == "live") volume * liveMusicLevel else if (recordingOnPhone) volume * phoneSpeakerLevel else volume
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -277,6 +278,7 @@ class MainActivity : ComponentActivity() {
                     recorder.wiredMonitoringEnabled = recordWithWiredMonitor && microphoneSource != "live"
                     recorder.wiredMonitorVolume = monitorVolume
                     recorder.start()
+                    player.play()
                     // The previous mix belongs to an older vocal take.
                     mixedFile = null
                     mixStatus = ""
@@ -817,6 +819,8 @@ class MainActivity : ComponentActivity() {
                     }
                     Text("Jika HP terhubung ke port LIVE1 soundcard lewat kabel analog, pilih Soundcard LIVE. Port ACCOMPANY biasanya input musik, bukan keluaran mic ke HP. Matikan suara balik aplikasi; dengarkan monitor langsung dari soundcard.", color = Color.LightGray, fontSize = 12.sp)
                     if (microphoneSource == "live") {
+                        Text("Level musik LIVE1: ${(liveMusicLevel * 100).toInt()}% (kurangi bila musik bocor ke rekaman vokal)", color = Color.LightGray, fontSize = 12.sp)
+                        Slider(value = liveMusicLevel, onValueChange = { if (!recording) liveMusicLevel = it }, valueRange = 0.15f..1f, enabled = !recording)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = liveContainsMusic, onCheckedChange = { if (!recording) liveContainsMusic = it }, enabled = !recording)
                             Text("Rekaman LIVE1 sudah berisi musik + vokal (hindari musik dobel)", color = Color.White, fontSize = 12.sp)
