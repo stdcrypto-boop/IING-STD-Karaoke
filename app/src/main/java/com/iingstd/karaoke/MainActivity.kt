@@ -286,7 +286,10 @@ class MainActivity : ComponentActivity() {
                     recordingStartedAt = android.os.SystemClock.elapsedRealtime()
                     recordingSeconds = 0
                     recordingStatus = if (microphoneSource == "live" && liveContainsMusic) "Merekam output LIVE1 (musik + vokal). Mixing kedua dimatikan untuk menghindari musik dobel." else if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file", "https") } == true) "Merekam vokal. Musik akan digabung otomatis setelah selesai." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
+                    if (recorder.routeNotice.isNotBlank()) recordingStatus += "\n" + recorder.routeNotice
                 } catch (e: Exception) {
+                    player.pause()
+                    player.volume = volume
                     recordingStatus = "Gagal merekam: " + (e.message ?: "kesalahan audio")
                 }
             }
