@@ -1,0 +1,38 @@
+name: Karaoke health check (5 minutes)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: karaoke-health-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify critical karaoke source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app/src/main/java/com/iingstd/karaoke/MainActivity.kt
+          test -s app/src/main/java/com/iingstd/karaoke/StudioLiveDsp.kt
+          test -s app/src/main/java/com/iingstd/karaoke/WiredVocalMonitor.kt
+          test -s app/src/main/java/com/iingstd/karaoke/WiredCaptureRecorder.kt
+          test -s app/src/main/java/com/iingstd/karaoke/VoiceRecorder.kt
+          grep -q 'studioDsp?.process(samples, n)' app/src/main/java/com/iingstd/karaoke/WiredVocalMonitor.kt
+          grep -q 'studioDsp?.process(samples, n)' app/src/main/java/com/iingstd/karaoke/WiredCaptureRecorder.kt
+          echo 'Source-level Studio LIVE checks passed.'
+      - name: Write check summary
+        if: always()
+        run: |
+          echo '## IING STD Karaoke - scheduled health check' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This is a lightweight source check, NOT a build, audio test, or autonomous AI repair.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'GitHub scheduled workflows can be delayed or skipped.' >> "$GITHUB_STEP_SUMMARY"
