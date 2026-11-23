@@ -47,6 +47,10 @@ class WiredCaptureRecorder(private val context: Context) {
 
     fun start(gain: Float, microphoneSource: String = "auto"): Uri {
         check(!running.get()) { "Capture already running" }
+        // A failed worker may have stopped itself while its WAV and audio handles
+        // still await stop() cleanup. Never overwrite that session or open a
+        // competing microphone capture before it has been finalized.
+        check(thread == null && file == null) { "Sesi rekaman sebelumnya belum diselesaikan" }
         val device = wiredOutput() ?: error("Headphone kabel tidak terdeteksi")
         val rate = 48000
         val inputMin = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
