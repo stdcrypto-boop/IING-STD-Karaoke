@@ -879,7 +879,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Button(shape = RoundedCornerShape(14.dp), onClick = { player.seekTo(position + 10000) }) { Text("10s ⏩") }
                     }
-                    TextButton(onClick = { showPlaybackOptions = !showPlaybackOptions }) {
+                    OutlinedButton(onClick = { showPlaybackOptions = !showPlaybackOptions }, shape = RoundedCornerShape(24.dp)) {
                         Text(if (showPlaybackOptions) "▴ Tutup pengaturan pemutar" else "⚙ Pengaturan pemutar")
                     }
                     if (showPlaybackOptions) {
@@ -903,11 +903,11 @@ class MainActivity : ComponentActivity() {
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { showSoundcardSettings = !showSoundcardSettings }) {
+                        OutlinedButton(onClick = { showSoundcardSettings = !showSoundcardSettings }, shape = RoundedCornerShape(24.dp)) {
                             Text(if (showSoundcardSettings) "▾ Tutup pengaturan soundcard" else "▸ Soundcard & Monitoring", color = Pink)
                         }
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { soundcardSettingsLocked = !soundcardSettingsLocked }) {
+                        OutlinedButton(onClick = { soundcardSettingsLocked = !soundcardSettingsLocked }, shape = RoundedCornerShape(24.dp)) {
                             Text(if (soundcardSettingsLocked) "🔒 Terkunci" else "🔓 Kunci", color = Color.White)
                         }
                     }
@@ -965,11 +965,6 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(if (monitorEnabled) "⏹ Matikan Monitor Studio LIVE" else "🎧 Aktifkan Monitor Studio LIVE (sebelum rekam)") }
                         Text(if (recording) "● EQ aktif pada rekaman dan monitor." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
-                        if (monitorEnabled && !recording) {
-                            Text("Sinyal MIC masuk: ${(previewInputPeak * 100).toInt()}%  |  Setelah EQ: ${(previewOutputPeak * 100).toInt()}%", color = Color.White, fontSize = 12.sp)
-                            LinearProgressIndicator(progress = { previewInputPeak.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-                            Text("Jika MIC tetap 0% saat bicara, audio soundcard belum masuk ke aplikasi. Jika MIC bergerak tetapi efek tidak terdengar, periksa jalur output monitoring dan direct monitor soundcard.", color = Color.LightGray, fontSize = 12.sp)
-                        }
                         if (!monitorEnabled && wiredMonitor.lastError.isNotBlank()) Text("⚠ ${wiredMonitor.lastError}", color = Color.Yellow, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
@@ -1054,7 +1049,7 @@ class MainActivity : ComponentActivity() {
                         else "Mulai merekam untuk melihat level mikrofon",
                         color = Color.LightGray, fontSize = 12.sp
                     )
-                    TextButton(onClick = { showMicOptions = !showMicOptions }) {
+                    OutlinedButton(onClick = { showMicOptions = !showMicOptions }, shape = RoundedCornerShape(24.dp)) {
                         Text(if (showMicOptions) "▴ Tutup pengaturan mikrofon" else "🎙 Pilihan mikrofon")
                     }
                     if (showMicOptions) {
@@ -1236,7 +1231,7 @@ class MainActivity : ComponentActivity() {
                     if (!recording && lastRecording != null) {
                         Spacer(Modifier.height(12.dp))
                         Text("🎵 Hasil karaoke otomatis (musik + vokal)", color = Pink, fontWeight = FontWeight.Bold)
-                        TextButton(onClick = { showMixOptions = !showMixOptions }) {
+                        OutlinedButton(onClick = { showMixOptions = !showMixOptions }, shape = RoundedCornerShape(24.dp)) {
                             Text(if (showMixOptions) "▴ Tutup pengaturan mixing" else "⚙ Atur volume & sinkronisasi")
                         }
                         if (showMixOptions) {
