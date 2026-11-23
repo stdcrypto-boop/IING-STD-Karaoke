@@ -56,4 +56,23 @@ class AudioTimingTest {
     fun invalidSampleRateRejected() {
         AudioTiming.requiredBackingFrames(100L, 0, 48000)
     }
+
+    @Test fun maximumFramesAtSameRateDoNotOverflow() {
+        assertEquals(Long.MAX_VALUE,
+            AudioTiming.requiredBackingFrames(Long.MAX_VALUE, 1, 1))
+    }
+
+    @Test fun maximumFramesWithDownsamplingAreAccepted() {
+        assertEquals(Long.MAX_VALUE / 2L + 1L,
+            AudioTiming.requiredBackingFrames(Long.MAX_VALUE, 2, 1))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun resamplingOverflowIsRejected() {
+        AudioTiming.requiredBackingFrames(Long.MAX_VALUE, 1, 2)
+    }
+
+    @Test fun fractionalFramesRoundUpWithoutOverflow() {
+        assertEquals(3L, AudioTiming.requiredBackingFrames(2L, 3, 4))
+    }
 }
