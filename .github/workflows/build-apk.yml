@@ -72,7 +72,7 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
 
-      - name: Publish direct APK only with persistent signing
+      - name: Stage draft APK only with persistent signing
         if: ${{ success() }}
         shell: bash
         env:
@@ -89,6 +89,6 @@ jobs:
           cp "$APK" IING-STD-Karaoke.apk
           sha256sum IING-STD-Karaoke.apk > IING-STD-Karaoke.apk.sha256
           gh release create "karaoke-build-${GITHUB_RUN_NUMBER}" IING-STD-Karaoke.apk IING-STD-Karaoke.apk.sha256 \
-            --title "IING STD Karaoke build ${GITHUB_RUN_NUMBER}" \
-            --notes "APK signed with configured persistent signing key; verify compatibility with installed APK certificate before updating. Commit ${GITHUB_SHA}." \
-            --target "$GITHUB_SHA" --latest
+            --title "IING STD Karaoke candidate build ${GITHUB_RUN_NUMBER}" \
+            --notes "UNVERIFIED CANDIDATE: Android device/Bonkyo F999 NEO audio validation and in-place update testing are still required. Do not publish as final. Persistent signing configured; commit ${GITHUB_SHA}." \
+            --target "$GITHUB_SHA" --draft --prerelease
