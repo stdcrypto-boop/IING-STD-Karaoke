@@ -935,13 +935,14 @@ class MainActivity : ComponentActivity() {
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
                                     monitorEnabled = wiredMonitor.start()
-                                    recordingStatus = if (monitorEnabled) "Studio LIVE aktif: atur EQ sambil mendengarkan." else "Monitor gagal: periksa earphone, USB, dan izin mikrofon."
+                                    recordingStatus = if (monitorEnabled) "Studio LIVE aktif: atur EQ sambil mendengarkan." else "Monitor gagal: ${wiredMonitor.lastError}"
                                 }
                             },
                             enabled = !recording,
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(if (monitorEnabled) "⏹ Matikan Monitor Studio LIVE" else "🎧 Aktifkan Monitor Studio LIVE (sebelum rekam)") }
                         Text(if (recording) "● EQ aktif pada rekaman dan monitor." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
+                        if (!monitorEnabled && wiredMonitor.lastError.isNotBlank()) Text("⚠ ${wiredMonitor.lastError}", color = Color.Yellow, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
                         Text("🎵 Volume Musik LIVE: ${(studioMusicVolume * 100).toInt()}%", color = Color.White)
