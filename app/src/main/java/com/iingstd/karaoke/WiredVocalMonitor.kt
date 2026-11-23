@@ -113,7 +113,11 @@ class WiredVocalMonitor(private val context: Context) {
                         return@Thread
                     }
                     var routeChecks = 0
-                    while (active.get() && wiredOutput() != null) {
+                    while (active.get()) {
+                        if (wiredOutput() == null) {
+                            lastError = "Output earphone/USB terputus saat monitoring"
+                            break
+                        }
                         if (++routeChecks >= 20) {
                             routeChecks = 0
                             if (usbInput != null && record.routedDevice?.id != usbInput.id) {
@@ -126,7 +130,10 @@ class WiredVocalMonitor(private val context: Context) {
                             }
                         }
                         val n = record.read(samples, 0, samples.size)
-                        if (n <= 0) break
+                        if (n <= 0) {
+                            if (active.get()) lastError = "Pembacaan mikrofon monitor gagal (kode $n)"
+                            break
+                        }
                         var rawMax = 0
                         for (i in 0 until n) rawMax = maxOf(rawMax, kotlin.math.abs(samples[i].toInt()))
                         inputPeak = rawMax / 32768f
@@ -141,10 +148,16 @@ class WiredVocalMonitor(private val context: Context) {
                         var written = 0
                         while (written < n && active.get()) {
                             val count = track.write(samples, written, n - written, AudioTrack.WRITE_BLOCKING)
-                            if (count <= 0) break
+                            if (count <= 0) {
+                                if (active.get()) lastError = "Output monitor gagal menulis audio (kode $count)"
+                                break
+                            }
                             written += count
                         }
-                        if (written < n) break
+                        if (written < n) {
+                            if (active.get() && lastError.isEmpty()) lastError = "Output monitor terputus sebelum seluruh audio terkirim"
+                            break
+                        }
                     }
                 } catch (e: Exception) {
                     lastError = "Monitoring terhenti: " + (e.message ?: e.javaClass.simpleName)
