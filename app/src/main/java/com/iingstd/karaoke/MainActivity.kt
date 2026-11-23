@@ -881,7 +881,9 @@ class MainActivity : ComponentActivity() {
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
                     if (microphoneSource == "live") {
-                        Text("⚠️ Mode LIVE: monitoring vokal melalui soundcard, bukan aplikasi. Matikan fitur suara balik agar tidak delay atau kresek.", color = Pink, fontSize = 12.sp)
+                        Text("🎤 LIVE F999 NEO — putar TREBLE / MID / REVERB / EFFECT pada soundcard sambil bernyanyi. Dengarkan langsung dari port EARPHONE soundcard; aplikasi tidak bisa membaca posisi knob analog. Perubahan hanya masuk rekaman bila output USB soundcard mengirim audio yang sudah diproses.", color = Pink, fontSize = 12.sp)
+                        Text("Pantau indikator level mikrofon saat rekaman dan periksa tulisan Input aktif. Jika tertulis Mikrofon HP atau muncul PERINGATAN, suara yang ditangkap bukan jalur USB F999 NEO. Jangan menaikkan MIC hingga pecah untuk memperkeras monitoring.", color = Color.LightGray, fontSize = 12.sp)
+                        Text("Monitoring digital aplikasi dimatikan otomatis saat Smart Audio aktif dan soundcard terdeteksi, untuk menghindari gema dan keterlambatan ganda.", color = Color.LightGray, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = smartAudioEnabled, onCheckedChange = { smartAudioEnabled = it }, enabled = !recording)
