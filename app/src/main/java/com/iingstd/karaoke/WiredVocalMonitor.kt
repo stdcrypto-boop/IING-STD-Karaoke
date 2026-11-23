@@ -54,17 +54,21 @@ class WiredVocalMonitor(private val context: Context) {
         val minOutput = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minInput <= 0 || minOutput <= 0) return false
         val frameBytes = 960
+        var pendingRecord: AudioRecord? = null
+        var pendingTrack: AudioTrack? = null
         try {
             val record = AudioRecord(
                 MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, maxOf(minInput, frameBytes * 4)
             )
+            pendingRecord = record
             if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); return false }
             val track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
                 .setBufferSizeInBytes(maxOf(minOutput, frameBytes * 4))
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
+            pendingTrack = track
             if (track.state != AudioTrack.STATE_INITIALIZED || !track.setPreferredDevice(device)) {
                 track.release(); record.release(); return false
             }
@@ -104,8 +108,10 @@ class WiredVocalMonitor(private val context: Context) {
             return true
         } catch (_: Exception) {
             active.set(false)
-            runCatching { input?.release() }
-            runCatching { output?.release() }
+            // Construction can fail before input/output are assigned. Release
+            // the local handles as well, otherwise the microphone stays reserved.
+            runCatching { pendingTrack?.release() }
+            runCatching { pendingRecord?.release() }
             input = null; output = null
             return false
         }
