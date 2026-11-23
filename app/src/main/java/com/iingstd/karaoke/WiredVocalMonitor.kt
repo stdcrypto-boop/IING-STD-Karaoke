@@ -112,6 +112,13 @@ class WiredVocalMonitor(private val context: Context) {
                         lastError = "Output monitor gagal mulai"
                         return@Thread
                     }
+                    // setPreferredDevice only requests a route. Validate the actual
+                    // AudioTrack destination before emitting the first vocal samples.
+                    // The recording path already performs this initial check.
+                    if (track.routedDevice?.id != device.id) {
+                        lastError = "Output monitor tidak memakai earphone/USB yang dipilih"
+                        return@Thread
+                    }
                     var routeChecks = 0
                     while (active.get()) {
                         if (wiredOutput() == null) {
