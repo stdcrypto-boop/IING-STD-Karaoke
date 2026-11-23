@@ -934,7 +934,6 @@ class MainActivity : ComponentActivity() {
                                 if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                                     wiredMonitor.stop()
                                     studioDsp.outputGain = studioVocalGain
-                                    studioDsp.outputGain = studioVocalGain
                                     studioDsp.reset()
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
@@ -956,6 +955,7 @@ class MainActivity : ComponentActivity() {
                                 } else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                                     recordingStatus = "Izinkan mikrofon dahulu melalui pengaturan aplikasi atau tombol rekam."
                                 } else {
+                                    studioDsp.outputGain = studioVocalGain
                                     studioDsp.reset()
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
