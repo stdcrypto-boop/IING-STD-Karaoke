@@ -10,8 +10,10 @@ android {
         applicationId = "com.iingstd.karaoke"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.0-rc1"
+        // GitHub Actions builds must advance their versionCode for in-place updates.
+        // Signing certificate must ALSO stay identical across builds.
+        versionCode = 1000 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1)
+        versionName = "1.0.0-rc2"
     }
     buildFeatures { compose = true }
     compileOptions {
