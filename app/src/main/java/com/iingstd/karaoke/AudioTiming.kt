@@ -11,9 +11,13 @@ internal object AudioTiming {
         require(seconds <= totalFrames / sampleRate) {
             "Posisi awal melewati durasi musik"
         }
-        val offset = seconds * sampleRate +
-            milliseconds * sampleRate.toLong() / 1000L
-        require(offset < totalFrames) { "Posisi awal melewati durasi musik" }
+        val wholeFrames = seconds * sampleRate
+        val fractionalFrames = milliseconds * sampleRate.toLong() / 1000L
+        // Check before addition: a near-Long.MAX_VALUE offset must not wrap negative.
+        require(wholeFrames < totalFrames && fractionalFrames < totalFrames - wholeFrames) {
+            "Posisi awal melewati durasi musik"
+        }
+        val offset = wholeFrames + fractionalFrames
         return offset
     }
 
