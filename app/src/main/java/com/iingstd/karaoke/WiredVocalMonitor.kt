@@ -10,6 +10,7 @@ import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.os.Process
 import androidx.core.content.ContextCompat
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -98,6 +99,9 @@ class WiredVocalMonitor(private val context: Context) {
             worker = Thread {
                 val samples = ShortArray(480)
                 try {
+                    // Match the recording worker's audio priority to reduce scheduler
+                    // interruptions during low-latency USB microphone preview.
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
                     record.startRecording()
                     if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                         lastError = "Mikrofon gagal masuk mode rekam"
