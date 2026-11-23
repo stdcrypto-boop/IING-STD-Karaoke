@@ -28,6 +28,7 @@ class VoiceRecorder(private val context: Context) {
         get() = wiredRecorder.studioDsp
         set(value) { wiredRecorder.studioDsp = value }
     var wiredMonitorVolume = 0.5f
+    fun updateLiveMonitorVolume(value: Float) { wiredMonitorVolume = value; wiredRecorder.setMonitorVolume(value) }
     /** auto, system (analog LIVE), usb, headset, or phone */
     var microphoneSource = "auto"
     var routeNotice: String = ""
