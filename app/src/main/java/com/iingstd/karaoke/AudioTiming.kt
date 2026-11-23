@@ -26,10 +26,15 @@ internal object AudioTiming {
             "Durasi atau sample rate audio tidak valid"
         }
         val wholeSeconds = voiceFrames / voiceRate
-        require(wholeSeconds <= (Long.MAX_VALUE - backingRate) / backingRate) {
+        val remainder = voiceFrames % voiceRate
+        // The remainder product fits Long (both rates are positive Ints).
+        // Round up without adding voiceRate - 1, which could overflow at bounds.
+        val numerator = remainder * backingRate.toLong()
+        val fractional = numerator / voiceRate +
+            if (numerator % voiceRate != 0L) 1L else 0L
+        require(wholeSeconds <= (Long.MAX_VALUE - fractional) / backingRate) {
             "Durasi audio terlalu panjang"
         }
-        return wholeSeconds * backingRate +
-            ((voiceFrames % voiceRate) * backingRate + voiceRate - 1L) / voiceRate
+        return wholeSeconds * backingRate + fractional
     }
 }
