@@ -224,6 +224,8 @@ class MainActivity : ComponentActivity() {
             var showPlaybackOptions by remember { mutableStateOf(false) }
             var showMicOptions by remember { mutableStateOf(false) }
             var showMixOptions by remember { mutableStateOf(false) }
+            var showSoundcardSettings by remember { mutableStateOf(false) }
+            var soundcardSettingsLocked by remember { mutableStateOf(true) }
             var smartAudioEnabled by remember { mutableStateOf(true) }
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
@@ -876,9 +878,20 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { showSoundcardSettings = !showSoundcardSettings }) {
+                            Text(if (showSoundcardSettings) "▾ Tutup pengaturan soundcard" else "▸ Soundcard & Monitoring", color = Pink)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { soundcardSettingsLocked = !soundcardSettingsLocked }) {
+                            Text(if (soundcardSettingsLocked) "🔒 Terkunci" else "🔓 Kunci", color = Color.White)
+                        }
+                    }
+                    if (showSoundcardSettings) {
+                        Text("Penguncian ini mencegah perubahan kontrol aplikasi secara tidak sengaja; tombol fisik F999 NEO tetap bekerja.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎛 F999 NEO: ACCOMPANY tidak dapat dikendalikan aplikasi jika knob hanya mengatur jalur input musik analog. Saat musik diputar lewat USB OTG, kontrol itu mungkin dilewati oleh hardware. Gunakan volume musik pada soundcard bila tersedia; jangan menaikkan MIC/RECORD untuk memperkeras monitor.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
-                    Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
+                    Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording && !soundcardSettingsLocked)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
                     if (microphoneSource == "live") {
                         Text("🎤 LIVE F999 NEO — putar TREBLE / MID / REVERB / EFFECT pada soundcard sambil bernyanyi. Dengarkan langsung dari port EARPHONE soundcard; aplikasi tidak bisa membaca posisi knob analog. Perubahan hanya masuk rekaman bila output USB soundcard mengirim audio yang sudah diproses.", color = Pink, fontSize = 12.sp)
@@ -886,11 +899,13 @@ class MainActivity : ComponentActivity() {
                         Text("Monitoring digital aplikasi dimatikan otomatis saat Smart Audio aktif dan soundcard terdeteksi, untuk menghindari gema dan keterlambatan ganda. Kepekaan tombol EQ/reverb analog tidak bisa diperbesar dari aplikasi tanpa pemrosesan monitoring tambahan yang berisiko delay.", color = Color.LightGray, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = smartAudioEnabled, onCheckedChange = { smartAudioEnabled = it }, enabled = !recording)
+                        Switch(checked = smartAudioEnabled, onCheckedChange = { if (!soundcardSettingsLocked) smartAudioEnabled = it }, enabled = !recording && !soundcardSettingsLocked)
                         Spacer(Modifier.width(8.dp))
                         Text("Smart Audio otomatis", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                     Text("Aktif: input eksternal memakai mixing bersih tanpa EQ/reverb aplikasi dan suara balik tambahan dimatikan untuk mencegah gema ganda. Efek fisik soundcard tidak dapat dimatikan aplikasi.", color = Color.LightGray, fontSize = 12.sp)
+
+                    }
                     val audioInputs = (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
                         .getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
                     val detectedUsbCard = audioInputs.any {
@@ -961,7 +976,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Text("Jika HP terhubung ke port LIVE1 soundcard lewat kabel analog, pilih Soundcard LIVE. Port ACCOMPANY biasanya input musik, bukan keluaran mic ke HP. Matikan suara balik aplikasi; dengarkan monitor langsung dari soundcard.", color = Color.LightGray, fontSize = 12.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = studioNaturalVocal, onCheckedChange = { if (!recording) studioNaturalVocal = it }, enabled = !recording)
+                        Checkbox(checked = studioNaturalVocal, onCheckedChange = { if (!recording && !soundcardSettingsLocked) studioNaturalVocal = it }, enabled = !recording && !soundcardSettingsLocked)
                         Text("Studio: vokal natural (hindari boost dan efek berlebihan)", color = Color.White, fontSize = 12.sp)
                     }
                     Text("Sambungkan Bonkyo F999 NEO melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
