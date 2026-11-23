@@ -101,16 +101,21 @@ class MainActivity : ComponentActivity() {
             val wiredMonitor = remember { WiredVocalMonitor(this) }
             DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
             var monitorEnabled by remember { mutableStateOf(false) }
-            var previewInputPeak by remember { mutableFloatStateOf(0f) }
-            var previewOutputPeak by remember { mutableFloatStateOf(0f) }
+            // The AudioRecord worker starts asynchronously. A successful start()
+            // only means the thread was launched, not that USB capture succeeded.
             LaunchedEffect(monitorEnabled) {
-                while (monitorEnabled) {
-                    previewInputPeak = wiredMonitor.inputPeak
-                    previewOutputPeak = wiredMonitor.processedPeak
-                    delay(120)
+                if (monitorEnabled) {
+                    delay(350)
+                    while (monitorEnabled) {
+                        if (!wiredMonitor.isActive()) {
+                            monitorEnabled = false
+                            recordingStatus = "Studio LIVE berhenti: " +
+                                wiredMonitor.lastError.ifBlank { "input atau output audio terputus" }
+                            break
+                        }
+                        delay(250)
+                    }
                 }
-                previewInputPeak = 0f
-                previewOutputPeak = 0f
             }
             var monitorVolume by remember { mutableFloatStateOf(1f) }
             var recordWithWiredMonitor by remember { mutableStateOf(false) }
