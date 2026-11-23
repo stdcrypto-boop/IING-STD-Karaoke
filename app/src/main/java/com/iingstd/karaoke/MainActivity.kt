@@ -933,6 +933,8 @@ class MainActivity : ComponentActivity() {
                                 studioLiveRequested = true
                                 if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                                     wiredMonitor.stop()
+                                    studioDsp.outputGain = studioVocalGain
+                                    studioDsp.outputGain = studioVocalGain
                                     studioDsp.reset()
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
