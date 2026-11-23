@@ -50,7 +50,7 @@ class WiredVocalMonitor(private val context: Context) {
     // Serialize start/stop so two callers cannot initialize separate AudioRecord
     // instances before active is set, or stop during initialization.
     @Synchronized
-    fun start(): Boolean {
+    fun start(microphoneSource: String = "auto"): Boolean {
         lastError = ""
         if (active.get()) return true
         // A previous monitor may still be releasing its AudioRecord. Do not
@@ -76,11 +76,25 @@ class WiredVocalMonitor(private val context: Context) {
             )
             pendingRecord = record
             if (record.state != AudioRecord.STATE_INITIALIZED) { lastError = "AudioRecord gagal dibuat"; record.release(); return false }
-            val usbInput = manager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull {
-                it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+            // Preview must use the same selected mic as the recording path.
+            // Otherwise Studio LIVE can sound correct before Record but capture
+            // from a different microphone after the preview-to-record handoff.
+            val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+            val preferred = when (microphoneSource) {
+                "usb" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+                "headset" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
+                "phone" -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+                "system" -> null
+                else -> inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+                    ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
             }
-            if (usbInput != null && !record.setPreferredDevice(usbInput)) {
-                lastError = "Tidak dapat memilih input mikrofon USB untuk monitoring"
+            if (microphoneSource != "auto" && microphoneSource != "system" && preferred == null) {
+                lastError = "Sumber mikrofon pilihan tidak ditemukan untuk monitoring"
+                record.release()
+                return false
+            }
+            if (preferred != null && !record.setPreferredDevice(preferred)) {
+                lastError = "Tidak dapat memilih mikrofon ${preferred.productName} untuk monitoring"
                 record.release()
                 return false
             }
@@ -107,8 +121,8 @@ class WiredVocalMonitor(private val context: Context) {
                         lastError = "Mikrofon gagal masuk mode rekam"
                         return@Thread
                     }
-                    if (usbInput != null && record.routedDevice?.id != usbInput.id) {
-                        lastError = "Input monitor bukan mikrofon USB yang dipilih"
+                    if (preferred != null && record.routedDevice?.id != preferred.id) {
+                        lastError = "Input monitor bukan mikrofon yang dipilih"
                         return@Thread
                     }
                     track.play()
@@ -131,8 +145,8 @@ class WiredVocalMonitor(private val context: Context) {
                         }
                         if (++routeChecks >= 20) {
                             routeChecks = 0
-                            if (usbInput != null && record.routedDevice?.id != usbInput.id) {
-                                lastError = "Input USB monitor berpindah saat LIVE"
+                            if (preferred != null && record.routedDevice?.id != preferred.id) {
+                                lastError = "Input mikrofon monitor berpindah saat LIVE"
                                 break
                             }
                             if (track.routedDevice?.id != device.id) {
