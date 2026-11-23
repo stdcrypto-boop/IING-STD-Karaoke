@@ -226,8 +226,6 @@ class MainActivity : ComponentActivity() {
             var showMixOptions by remember { mutableStateOf(false) }
             var smartAudioEnabled by remember { mutableStateOf(true) }
             var sessionExternalAudio by remember { mutableStateOf(false) }
-            // Backing track heard during recording only; never changes exported music gain.
-            var monitorMusicLevel by remember { mutableFloatStateOf(1f) }
             fun beginRecording() {
                 wiredMonitor.stop()
                 monitorEnabled = false
@@ -273,7 +271,7 @@ class MainActivity : ComponentActivity() {
                     sessionExternalAudio = hasExternalInput
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
-                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else if (hasExternalInput) volume * monitorMusicLevel else volume
+                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else if (hasExternalInput) 1f else volume
                     if (hasExternalInput) {
                         val outputNames = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
                             .filter { it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE || it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET }
@@ -869,7 +867,7 @@ class MainActivity : ComponentActivity() {
                         Text("Volume", color = Color.LightGray)
                         Slider(value = volume, onValueChange = {
                             volume = it
-                            player.volume = if (recording) { if (recordingOnPhone) it * phoneSpeakerLevel else if (sessionExternalAudio) it * monitorMusicLevel else it } else it
+                            player.volume = if (recording && sessionExternalAudio && !recordingOnPhone) 1f else if (recording && recordingOnPhone) it * phoneSpeakerLevel else it
                         }, modifier = Modifier.weight(1f))
                         Text("${(volume * 100).toInt()}%", color = Color.LightGray)
                     }
@@ -878,14 +876,7 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     }
-                    Text("🎧 Musik di monitor saat rekam: ${(monitorMusicLevel * 100).toInt()}%", color = Pink)
-                    Slider(value = monitorMusicLevel, onValueChange = {
-                        monitorMusicLevel = it
-                        if (recording && sessionExternalAudio && !recordingOnPhone) {
-                            player.volume = volume * it
-                        }
-                    }, valueRange = 0.05f..1f)
-                    Text("Untuk soundcard, level awal 100% agar aplikasi tidak meredam musik sebelum tombol ACCOMPANY. Turunkan hanya bila perlu.  Tidak mengubah volume musik hasil mixing. Jika vokal soundcard tetap hilang ketika aplikasi merekam, Android mungkin mengambil alih jalur monitor; slider ini tidak dapat memperkuat sinyal mikrofon fisik.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("🎛 Soundcard F999 NEO: musik monitoring diatur dari perangkat. Aplikasi tidak memakai slider musik monitoring saat merekam lewat soundcard. Jika vokal masih samar, jalur monitoring hardware perlu diperiksa; menaikkan MIC bisa membuat rekaman pecah.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
