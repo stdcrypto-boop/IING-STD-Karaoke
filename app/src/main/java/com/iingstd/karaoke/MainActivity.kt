@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
             var smartAudioEnabled by remember { mutableStateOf(true) }
             var sessionExternalAudio by remember { mutableStateOf(false) }
             // Backing track heard during recording only; never changes exported music gain.
-            var monitorMusicLevel by remember { mutableFloatStateOf(0.30f) }
+            var monitorMusicLevel by remember { mutableFloatStateOf(1f) }
             fun beginRecording() {
                 wiredMonitor.stop()
                 monitorEnabled = false
@@ -274,6 +274,12 @@ class MainActivity : ComponentActivity() {
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
                     player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else if (hasExternalInput) volume * monitorMusicLevel else volume
+                    if (hasExternalInput) {
+                        val outputNames = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+                            .filter { it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE || it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET }
+                            .joinToString { it.productName.toString() }
+                        if (outputNames.isNotBlank()) recordingStatus = "Output audio Android terdeteksi: $outputNames. Tombol ACCOMPANY soundcard hanya bekerja bila jalur hardware mendukungnya."
+                    }
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -879,7 +885,7 @@ class MainActivity : ComponentActivity() {
                             player.volume = volume * it
                         }
                     }, valueRange = 0.05f..1f)
-                    Text("Khusus headphone/soundcard: kecilkan musik yang terdengar saat bernyanyi tanpa menaikkan MIC atau RECORD. Tidak mengubah volume musik hasil mixing. Jika vokal soundcard tetap hilang ketika aplikasi merekam, Android mungkin mengambil alih jalur monitor; slider ini tidak dapat memperkuat sinyal mikrofon fisik.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("Untuk soundcard, level awal 100% agar aplikasi tidak meredam musik sebelum tombol ACCOMPANY. Turunkan hanya bila perlu.  Tidak mengubah volume musik hasil mixing. Jika vokal soundcard tetap hilang ketika aplikasi merekam, Android mungkin mengambil alih jalur monitor; slider ini tidak dapat memperkuat sinyal mikrofon fisik.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
