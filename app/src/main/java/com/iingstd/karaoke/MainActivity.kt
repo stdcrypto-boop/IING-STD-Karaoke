@@ -876,14 +876,14 @@ class MainActivity : ComponentActivity() {
                         player.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                     }) { Text(if (repeatOne) "🔁 Ulangi lagu: ON" else "🔁 Ulangi lagu: OFF") }
                     }
-                    Text("🎛 Soundcard F999 NEO: musik monitoring diatur dari perangkat. Aplikasi tidak memakai slider musik monitoring saat merekam lewat soundcard. Jika vokal masih samar, jalur monitoring hardware perlu diperiksa; menaikkan MIC bisa membuat rekaman pecah.", color = Color.LightGray, fontSize = 12.sp)
+                    Text("🎛 F999 NEO: ACCOMPANY tidak dapat dikendalikan aplikasi jika knob hanya mengatur jalur input musik analog. Saat musik diputar lewat USB OTG, kontrol itu mungkin dilewati oleh hardware. Gunakan volume musik pada soundcard bila tersedia; jangan menaikkan MIC/RECORD untuk memperkeras monitor.", color = Color.LightGray, fontSize = 12.sp)
                     Text("🎚 Volume speaker HP saat merekam: ${(phoneSpeakerLevel * 100).toInt()}%", color = Pink)
                     Slider(value = phoneSpeakerLevel, onValueChange = { phoneSpeakerLevel = it }, valueRange = 0.15f..0.60f, enabled = !recording)
                     Text("Mode HP langsung: musik lebih pelan, vokal lebih menonjol. Gunakan 15–30% bila suara musik masih dobel.", color = Color.LightGray, fontSize = 12.sp)
                     if (microphoneSource == "live") {
                         Text("🎤 LIVE F999 NEO — putar TREBLE / MID / REVERB / EFFECT pada soundcard sambil bernyanyi. Dengarkan langsung dari port EARPHONE soundcard; aplikasi tidak bisa membaca posisi knob analog. Perubahan hanya masuk rekaman bila output USB soundcard mengirim audio yang sudah diproses.", color = Pink, fontSize = 12.sp)
                         Text("Pantau indikator level mikrofon saat rekaman dan periksa tulisan Input aktif. Jika tertulis Mikrofon HP atau muncul PERINGATAN, suara yang ditangkap bukan jalur USB F999 NEO. Jangan menaikkan MIC hingga pecah untuk memperkeras monitoring.", color = Color.LightGray, fontSize = 12.sp)
-                        Text("Monitoring digital aplikasi dimatikan otomatis saat Smart Audio aktif dan soundcard terdeteksi, untuk menghindari gema dan keterlambatan ganda.", color = Color.LightGray, fontSize = 12.sp)
+                        Text("Monitoring digital aplikasi dimatikan otomatis saat Smart Audio aktif dan soundcard terdeteksi, untuk menghindari gema dan keterlambatan ganda. Kepekaan tombol EQ/reverb analog tidak bisa diperbesar dari aplikasi tanpa pemrosesan monitoring tambahan yang berisiko delay.", color = Color.LightGray, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = smartAudioEnabled, onCheckedChange = { smartAudioEnabled = it }, enabled = !recording)
