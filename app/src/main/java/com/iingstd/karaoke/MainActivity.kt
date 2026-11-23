@@ -101,22 +101,6 @@ class MainActivity : ComponentActivity() {
             val wiredMonitor = remember { WiredVocalMonitor(this) }
             DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
             var monitorEnabled by remember { mutableStateOf(false) }
-            // The AudioRecord worker starts asynchronously. A successful start()
-            // only means the thread was launched, not that USB capture succeeded.
-            LaunchedEffect(monitorEnabled) {
-                if (monitorEnabled) {
-                    delay(350)
-                    while (monitorEnabled) {
-                        if (!wiredMonitor.isActive()) {
-                            monitorEnabled = false
-                            recordingStatus = "Studio LIVE berhenti: " +
-                                wiredMonitor.lastError.ifBlank { "input atau output audio terputus" }
-                            break
-                        }
-                        delay(250)
-                    }
-                }
-            }
             var monitorVolume by remember { mutableFloatStateOf(1f) }
             var recordWithWiredMonitor by remember { mutableStateOf(false) }
             var recording by remember { mutableStateOf(false) }
@@ -152,6 +136,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
             var recordingStatus by remember { mutableStateOf("") }
+            // The AudioRecord worker starts asynchronously. A successful start()
+            // only means the thread was launched, not that USB capture succeeded.
+            LaunchedEffect(monitorEnabled) {
+                if (monitorEnabled) {
+                    delay(350)
+                    while (monitorEnabled) {
+                        if (!wiredMonitor.isActive()) {
+                            monitorEnabled = false
+                            recordingStatus = "Studio LIVE berhenti: " +
+                                wiredMonitor.lastError.ifBlank { "input atau output audio terputus" }
+                            break
+                        }
+                        delay(250)
+                    }
+                }
+            }
             var sessionSongUri by remember { mutableStateOf<String?>(null) }
             var sessionSongTitle by remember { mutableStateOf<String?>(null) }
             var sessionStartPositionMs by remember { mutableLongStateOf(0L) }
