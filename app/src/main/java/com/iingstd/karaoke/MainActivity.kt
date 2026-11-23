@@ -123,8 +123,6 @@ class MainActivity : ComponentActivity() {
             }
             var externalMic by remember { mutableStateOf(false) }
             var microphoneSource by remember { mutableStateOf("auto") }
-            var liveContainsMusic by remember { mutableStateOf(false) }
-            var liveMusicLevel by remember { mutableFloatStateOf(0.35f) }
             var recordingPauseStartedAt by remember { mutableLongStateOf(0L) }
             var recordingPausedMs by remember { mutableLongStateOf(0L) }
             var recordingStartedAt by remember { mutableLongStateOf(0L) }
@@ -273,7 +271,7 @@ class MainActivity : ComponentActivity() {
                     sessionExternalAudio = hasExternalInput
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
-                    player.volume = if (microphoneSource == "live") volume * liveMusicLevel else if (recordingOnPhone) volume * phoneSpeakerLevel else volume
+                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else volume
                     sessionSongUri = song.uri
                     sessionSongTitle = song.title
                     sessionStartPositionMs = player.currentPosition.coerceAtLeast(0)
@@ -293,10 +291,6 @@ class MainActivity : ComponentActivity() {
                     recorder.microphoneSource = if (microphoneSource == "live") {
                         if (liveUsbInputAvailable) "usb" else "system"
                     } else microphoneSource
-                    if (microphoneSource == "live" && liveContainsMusic) {
-                        sessionMixCompatible = false
-                        sessionMixWarning = "LIVE1 sudah merekam keluaran soundcard (musik + vokal). Mixing musik kedua dinonaktifkan agar tidak dobel."
-                    }
                     // External soundcards often have zero-latency direct monitoring.
                     // Smart mode avoids a second, delayed monitoring signal by default.
                     recorder.wiredMonitoringEnabled = recordWithWiredMonitor && !(smartAudioEnabled && hasExternalInput)
@@ -319,7 +313,7 @@ class MainActivity : ComponentActivity() {
                     recordingPausedMs = 0L
                     recordingStartedAt = android.os.SystemClock.elapsedRealtime()
                     recordingSeconds = 0
-                    recordingStatus = if (microphoneSource == "live" && liveContainsMusic) "Merekam output LIVE1 (musik + vokal). Mixing kedua dimatikan untuk menghindari musik dobel." else if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file", "https") } == true) "Merekam vokal. Musik akan digabung otomatis setelah selesai." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
+                    recordingStatus = if (sessionMixCompatible && sessionSongUri?.let { Uri.parse(it).scheme in listOf("content", "file", "https") } == true) "Merekam vokal. Musik akan digabung otomatis setelah selesai." else "Merekam vokal saja. Putar MP3/MP4 lokal pada kecepatan normal agar musik bisa digabung otomatis."
                     if (recorder.routeNotice.isNotBlank()) recordingStatus += "\n" + recorder.routeNotice
                 } catch (e: Exception) {
                     player.pause()
@@ -961,16 +955,7 @@ class MainActivity : ComponentActivity() {
                         Checkbox(checked = studioNaturalVocal, onCheckedChange = { if (!recording) studioNaturalVocal = it }, enabled = !recording)
                         Text("Studio: vokal natural (hindari boost dan efek berlebihan)", color = Color.White, fontSize = 12.sp)
                     }
-                    if (microphoneSource == "live") {
-                        Text("Level musik LIVE1: ${(liveMusicLevel * 100).toInt()}% (kurangi bila musik bocor ke rekaman vokal)", color = Color.LightGray, fontSize = 12.sp)
-                        Slider(value = liveMusicLevel, onValueChange = { if (!recording) liveMusicLevel = it }, valueRange = 0f..1f, enabled = !recording)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = liveContainsMusic, onCheckedChange = { if (!recording) liveContainsMusic = it }, enabled = !recording)
-                            Text("Rekaman LIVE1 sudah berisi musik + vokal (hindari musik dobel)", color = Color.White, fontSize = 12.sp)
-                        }
-                        Text("Aktifkan jika rekaman LIVE1 sudah berisi musik dan vokal. Aplikasi tidak akan menambahkan musik lagi sehingga tidak bertabrakan. Matikan hanya jika LIVE1 mengirim vokal saja.", color = Color.LightGray, fontSize = 12.sp)
-                    }
-                    Text("Sambungkan Bonkyo F999 Max melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
+                    Text("Sambungkan Bonkyo F999 NEO melalui OTG sebelum menekan Rekam. Bluetooth hanya digunakan sebagai mikrofon bila Android mendukung input audionya. Musik lokal tetap digabung otomatis setelah rekaman.",
                         color = Color.LightGray, fontSize = 12.sp)
                     }
                     Button(onClick = {
