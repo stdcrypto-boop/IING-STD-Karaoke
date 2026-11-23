@@ -99,6 +99,17 @@ class WiredCaptureRecorder(private val context: Context) {
                     RandomAccessFile(destination, "rw").use { wav ->
                         wav.seek(44)
                         capture.startRecording()
+                        check(capture.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                            "Mikrofon tidak mulai merekam"
+                        }
+                        // setPreferredDevice() only expresses a preference. Verify the
+                        // actual Android route after capture starts, before writing WAV.
+                        if (preferred != null) {
+                            val routed = capture.routedDevice
+                            check(routed?.id == preferred.id) {
+                                "Input mikrofon berubah: dipilih ${preferred.productName}, aktif ${routed?.productName ?: "tidak diketahui"}"
+                            }
+                        }
                         monitor.play()
                         // Block I/O avoids thousands of tiny file writes per second,
                         // which previously starved the audio callback and caused crackling.
@@ -136,7 +147,14 @@ class WiredCaptureRecorder(private val context: Context) {
                             // Check physical output route periodically, not on every buffer.
                             if (++routeCheck >= 20) {
                                 routeCheck = 0
-                                if (wiredOutput() == null) break
+                                if (wiredOutput() == null) {
+                                    failure = IllegalStateException("Output earphone/USB terputus")
+                                    break
+                                }
+                                if (preferred != null && capture.routedDevice?.id != preferred.id) {
+                                    failure = IllegalStateException("Input mikrofon LIVE OTG berpindah saat rekaman")
+                                    break
+                                }
                             }
                             var offset = 0
                             while (offset < n && running.get()) {
