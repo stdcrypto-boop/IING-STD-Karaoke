@@ -125,7 +125,10 @@ class WiredCaptureRecorder(private val context: Context) {
                         var routeCheck = 0
                         while (running.get()) {
                             val n = capture.read(samples, 0, samples.size, AudioRecord.READ_BLOCKING)
-                            if (n <= 0) break
+                            if (n <= 0) {
+                                if (running.get()) failure = IllegalStateException("Pembacaan mikrofon LIVE gagal (kode $n)")
+                                break
+                            }
                             if (paused.get()) continue
                             // Studio mode: process once, then write and monitor identical PCM.
                             studioDsp?.process(samples, n)
@@ -169,10 +172,16 @@ class WiredCaptureRecorder(private val context: Context) {
                             var offset = 0
                             while (offset < n && running.get()) {
                                 val written = monitor.write(listen, offset, n - offset, AudioTrack.WRITE_BLOCKING)
-                                if (written <= 0) break
+                                if (written <= 0) {
+                                    if (running.get()) failure = IllegalStateException("Output monitoring LIVE gagal (kode $written)")
+                                    break
+                                }
                                 offset += written
                             }
-                            if (offset < n) break
+                            if (offset < n) {
+                                if (running.get() && failure == null) failure = IllegalStateException("Output monitoring LIVE terputus sebelum seluruh audio dikirim")
+                                break
+                            }
                         }
                         writeHeader(wav, bytes, rate)
                     }
