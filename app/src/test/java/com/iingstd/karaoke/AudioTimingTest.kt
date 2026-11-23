@@ -30,6 +30,16 @@ class AudioTimingTest {
         AudioTiming.backingOffsetFrames(Long.MAX_VALUE, 48000, 48000L)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun nearLongMaxOffsetCannotWrapIntoValidRange() {
+        AudioTiming.backingOffsetFrames(Long.MAX_VALUE / 1000L * 1000L + 999L, 1000, Long.MAX_VALUE)
+    }
+
+    @Test fun offsetNearLongMaxWithoutOverflow() {
+        assertEquals(Long.MAX_VALUE - 2L,
+            AudioTiming.backingOffsetFrames(Long.MAX_VALUE - 2L, 1000, Long.MAX_VALUE))
+    }
+
     @Test fun sameRateNeedsSameNumberOfFrames() {
         assertEquals(48000L, AudioTiming.requiredBackingFrames(48000L, 48000, 48000))
     }
