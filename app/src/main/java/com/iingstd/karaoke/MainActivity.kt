@@ -235,6 +235,8 @@ class MainActivity : ComponentActivity() {
             var studioReverb by remember { mutableFloatStateOf(0f) }
             var studioCompressor by remember { mutableFloatStateOf(0f) }
             var studioMonitorGain by remember { mutableFloatStateOf(0.7f) }
+            var studioVocalGain by remember { mutableFloatStateOf(1f) }
+            var studioMusicVolume by remember { mutableFloatStateOf(0.85f) }
 
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
@@ -282,7 +284,7 @@ class MainActivity : ComponentActivity() {
                     sessionExternalAudio = hasExternalInput
                     // Do not attenuate music for an analog LIVE connection: the cable
                     // already isolates playback from the phone's built-in speaker.
-                    player.volume = if (recordingOnPhone) volume * phoneSpeakerLevel else if (hasExternalInput) 1f else volume
+                    player.volume = if (studioLiveRequested) studioMusicVolume else if (recordingOnPhone) volume * phoneSpeakerLevel else if (hasExternalInput) 1f else volume
                     if (hasExternalInput) {
                         val outputNames = inputManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
                             .filter { it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE || it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET }
@@ -312,7 +314,7 @@ class MainActivity : ComponentActivity() {
                     // Smart mode avoids a second, delayed monitoring signal by default.
                     // Explicit opt-in: software monitoring can be delayed on some USB soundcards.
                     recorder.wiredMonitoringEnabled = if (studioLiveRequested) true else recordWithWiredMonitor && !hasExternalInput
-                    recorder.studioDsp = if (studioLiveRequested) studioDsp.also { it.reset() } else null
+                    recorder.studioDsp = if (studioLiveRequested) studioDsp.also { it.outputGain = studioVocalGain; it.reset() } else null
                     recorder.wiredMonitorVolume = if (studioLiveRequested) studioMonitorGain else monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
@@ -880,7 +882,7 @@ class MainActivity : ComponentActivity() {
                         Text("Volume", color = Color.LightGray)
                         Slider(value = volume, onValueChange = {
                             volume = it
-                            player.volume = if (recording && sessionExternalAudio && !recordingOnPhone) 1f else if (recording && recordingOnPhone) it * phoneSpeakerLevel else it
+                            player.volume = if (studioLiveRequested) studioMusicVolume else if (recording && sessionExternalAudio && !recordingOnPhone) 1f else if (recording && recordingOnPhone) it * phoneSpeakerLevel else it
                         }, modifier = Modifier.weight(1f))
                         Text("${(volume * 100).toInt()}%", color = Color.LightGray)
                     }
@@ -920,6 +922,11 @@ class MainActivity : ComponentActivity() {
                     }
                     if (studioLiveRequested) {
                         Text("Studio LIVE memutar ulang mikrofon lewat Android; gunakan earphone dan kecilkan efek fisik soundcard. Hentikan mode ini bila terdengar suara dobel atau terlambat. Semua slider di bawah memproses rekaman WAV dan monitoring dari sampel yang sama.", color = Pink, fontSize = 12.sp)
+                        Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
+                        Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
+                        Text("🎵 Volume Musik LIVE: ${(studioMusicVolume * 100).toInt()}%", color = Color.White)
+                        Slider(value = studioMusicVolume, onValueChange = { studioMusicVolume = it; player.volume = it }, valueRange = 0f..1f, enabled = !soundcardSettingsLocked)
+                        Text("Volume vokal memengaruhi audio yang direkam Studio LIVE. Volume musik ini hanya mengatur playback saat bernyanyi, bukan level hasil mixing akhir.", color = Color.LightGray, fontSize = 12.sp)
                         Text("Bass: ${studioBass.toInt()} dB", color = Color.White)
                         Slider(value = studioBass, onValueChange = { studioBass = it; studioDsp.bassDb = it }, valueRange = -12f..12f, enabled = !soundcardSettingsLocked)
                         Text("Mid: ${studioMid.toInt()} dB", color = Color.White)
