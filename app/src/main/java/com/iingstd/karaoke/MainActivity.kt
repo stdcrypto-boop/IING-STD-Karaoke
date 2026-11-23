@@ -227,6 +227,7 @@ class MainActivity : ComponentActivity() {
             var showSoundcardSettings by remember { mutableStateOf(false) }
             var soundcardSettingsLocked by remember { mutableStateOf(true) }
             var smartAudioEnabled by remember { mutableStateOf(true) }
+            var studioLiveRequested by remember { mutableStateOf(false) }
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
                 wiredMonitor.stop()
@@ -301,7 +302,7 @@ class MainActivity : ComponentActivity() {
                     } else microphoneSource
                     // External soundcards often have zero-latency direct monitoring.
                     // Smart mode avoids a second, delayed monitoring signal by default.
-                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && !(smartAudioEnabled && hasExternalInput)
+                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && !hasExternalInput
                     recorder.wiredMonitorVolume = monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
@@ -897,6 +898,18 @@ class MainActivity : ComponentActivity() {
                         Text("🎤 Soundcard LIVE: EQ dan efek berasal dari F999 NEO; pemrosesan tambahan aplikasi harus nonaktif agar tidak bertumpuk. Studio LIVE (mixer aplikasi) nantinya memerlukan EQ/REVERB/EFFECT fisik pada posisi netral atau minimum secara manual. Aplikasi tidak bisa mematikan efek analog F999 NEO.", color = Pink, fontSize = 12.sp)
                         Text("Pantau indikator level mikrofon saat rekaman dan periksa tulisan Input aktif. Jika tertulis Mikrofon HP atau muncul PERINGATAN, suara yang ditangkap bukan jalur USB F999 NEO. Jangan menaikkan MIC hingga pecah untuk memperkeras monitoring.", color = Color.LightGray, fontSize = 12.sp)
                         Text("Monitoring digital aplikasi dimatikan otomatis saat Smart Audio aktif dan soundcard terdeteksi, untuk menghindari gema dan keterlambatan ganda. Kepekaan tombol EQ/reverb analog tidak bisa diperbesar dari aplikasi tanpa pemrosesan monitoring tambahan yang berisiko delay.", color = Color.LightGray, fontSize = 12.sp)
+                    }
+                    Text("🎛 Mode efek", color = Pink, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = !studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) studioLiveRequested = false }, enabled = !recording && !soundcardSettingsLocked)
+                        Text("Soundcard LIVE (aktif, efek fisik F999 NEO)", color = Color.White, fontSize = 12.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) studioLiveRequested = true }, enabled = !recording && !soundcardSettingsLocked)
+                        Text("Studio LIVE (rencana, belum tersedia)", color = Color.White, fontSize = 12.sp)
+                    }
+                    if (studioLiveRequested) {
+                        Text("Mixer EQ real-time belum terpasang. Untuk keamanan, audio tetap menggunakan mode Soundcard LIVE; tidak ada efek digital ganda. Setelan EQ/reverb fisik tidak dapat dimatikan oleh aplikasi.", color = Pink, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = smartAudioEnabled, onCheckedChange = { if (!soundcardSettingsLocked) smartAudioEnabled = it }, enabled = !recording && !soundcardSettingsLocked)
