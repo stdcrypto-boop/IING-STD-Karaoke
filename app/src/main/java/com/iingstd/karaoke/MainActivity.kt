@@ -228,6 +228,14 @@ class MainActivity : ComponentActivity() {
             var soundcardSettingsLocked by remember { mutableStateOf(true) }
             var smartAudioEnabled by remember { mutableStateOf(true) }
             var studioLiveRequested by remember { mutableStateOf(false) }
+            val studioDsp = remember { StudioLiveDsp() }
+            var studioBass by remember { mutableFloatStateOf(0f) }
+            var studioMid by remember { mutableFloatStateOf(0f) }
+            var studioTreble by remember { mutableFloatStateOf(0f) }
+            var studioReverb by remember { mutableFloatStateOf(0f) }
+            var studioCompressor by remember { mutableFloatStateOf(0f) }
+            var studioMonitorGain by remember { mutableFloatStateOf(0.7f) }
+
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
                 wiredMonitor.stop()
@@ -302,8 +310,10 @@ class MainActivity : ComponentActivity() {
                     } else microphoneSource
                     // External soundcards often have zero-latency direct monitoring.
                     // Smart mode avoids a second, delayed monitoring signal by default.
-                    recorder.wiredMonitoringEnabled = recordWithWiredMonitor && !hasExternalInput
-                    recorder.wiredMonitorVolume = monitorVolume
+                    // Explicit opt-in: software monitoring can be delayed on some USB soundcards.
+                    recorder.wiredMonitoringEnabled = if (studioLiveRequested) true else recordWithWiredMonitor && !hasExternalInput
+                    recorder.studioDsp = if (studioLiveRequested) studioDsp.also { it.reset() } else null
+                    recorder.wiredMonitorVolume = if (studioLiveRequested) studioMonitorGain else monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
                     recorder.start()
                     inputTooHot = false
@@ -906,10 +916,25 @@ class MainActivity : ComponentActivity() {
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) studioLiveRequested = true }, enabled = !recording && !soundcardSettingsLocked)
-                        Text("Studio LIVE (rencana, belum tersedia)", color = Color.White, fontSize = 12.sp)
+                        Text("Studio LIVE (uji coba: EQ real-time)", color = Color.White, fontSize = 12.sp)
                     }
                     if (studioLiveRequested) {
-                        Text("Mixer EQ real-time belum terpasang. Untuk keamanan, audio tetap menggunakan mode Soundcard LIVE; tidak ada efek digital ganda. Setelan EQ/reverb fisik tidak dapat dimatikan oleh aplikasi.", color = Pink, fontSize = 12.sp)
+                        Text("Studio LIVE memutar ulang mikrofon lewat Android; gunakan earphone dan kecilkan efek fisik soundcard. Hentikan mode ini bila terdengar suara dobel atau terlambat. Semua slider di bawah memproses rekaman WAV dan monitoring dari sampel yang sama.", color = Pink, fontSize = 12.sp)
+                        @Suppress("UNUSED_VARIABLE")
+                        val unusedStudioLabel = "Studio"
+                        Text("Bass: ${studioBass.toInt()} dB", color = Color.White)
+                        Slider(value = studioBass, onValueChange = { studioBass = it; studioDsp.bassDb = it }, valueRange = -12f..12f, enabled = !soundcardSettingsLocked)
+                        Text("Mid: ${studioMid.toInt()} dB", color = Color.White)
+                        Slider(value = studioMid, onValueChange = { studioMid = it; studioDsp.midDb = it }, valueRange = -12f..12f, enabled = !soundcardSettingsLocked)
+                        Text("Treble: ${studioTreble.toInt()} dB", color = Color.White)
+                        Slider(value = studioTreble, onValueChange = { studioTreble = it; studioDsp.trebleDb = it }, valueRange = -12f..12f, enabled = !soundcardSettingsLocked)
+                        Text("Reverb: ${(studioReverb * 100).toInt()}%", color = Color.White)
+                        Slider(value = studioReverb, onValueChange = { studioReverb = it; studioDsp.reverbMix = it }, valueRange = 0f..0.35f, enabled = !soundcardSettingsLocked)
+                        Text("Compressor: ${(studioCompressor * 100).toInt()}%", color = Color.White)
+                        Slider(value = studioCompressor, onValueChange = { studioCompressor = it; studioDsp.compressorAmount = it }, valueRange = 0f..1f, enabled = !soundcardSettingsLocked)
+                        Text("Monitor vokal: ${(studioMonitorGain * 100).toInt()}%", color = Color.White)
+                        Slider(value = studioMonitorGain, onValueChange = { studioMonitorGain = it; if (recording && studioLiveRequested) recorder.wiredMonitorVolume = it }, valueRange = 0.1f..1.5f, enabled = !soundcardSettingsLocked)
+
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = smartAudioEnabled, onCheckedChange = { if (!soundcardSettingsLocked) smartAudioEnabled = it }, enabled = !recording && !soundcardSettingsLocked)
