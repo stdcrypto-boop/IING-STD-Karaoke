@@ -71,7 +71,10 @@ class WiredCaptureRecorder(private val context: Context) {
                     ?: inputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }
             }
             if (microphoneSource != "auto" && preferred == null) error("Sumber mikrofon tidak terdeteksi")
-            if (preferred != null && !input.setPreferredDevice(preferred) && microphoneSource != "auto") error("Gagal memilih mikrofon")
+            // Do not silently fall back to the phone mic when USB was preferred.
+            if (preferred != null && !input.setPreferredDevice(preferred)) {
+                error("Gagal memilih mikrofon ${preferred.productName}; rekaman dibatalkan agar tidak memakai input yang salah")
+            }
             output = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
