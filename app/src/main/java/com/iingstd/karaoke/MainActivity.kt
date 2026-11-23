@@ -920,8 +920,6 @@ class MainActivity : ComponentActivity() {
                     }
                     if (studioLiveRequested) {
                         Text("Studio LIVE memutar ulang mikrofon lewat Android; gunakan earphone dan kecilkan efek fisik soundcard. Hentikan mode ini bila terdengar suara dobel atau terlambat. Semua slider di bawah memproses rekaman WAV dan monitoring dari sampel yang sama.", color = Pink, fontSize = 12.sp)
-                        @Suppress("UNUSED_VARIABLE")
-                        val unusedStudioLabel = "Studio"
                         Text("Bass: ${studioBass.toInt()} dB", color = Color.White)
                         Slider(value = studioBass, onValueChange = { studioBass = it; studioDsp.bassDb = it }, valueRange = -12f..12f, enabled = !soundcardSettingsLocked)
                         Text("Mid: ${studioMid.toInt()} dB", color = Color.White)
@@ -933,7 +931,7 @@ class MainActivity : ComponentActivity() {
                         Text("Compressor: ${(studioCompressor * 100).toInt()}%", color = Color.White)
                         Slider(value = studioCompressor, onValueChange = { studioCompressor = it; studioDsp.compressorAmount = it }, valueRange = 0f..1f, enabled = !soundcardSettingsLocked)
                         Text("Monitor vokal: ${(studioMonitorGain * 100).toInt()}%", color = Color.White)
-                        Slider(value = studioMonitorGain, onValueChange = { studioMonitorGain = it; if (recording && studioLiveRequested) recorder.wiredMonitorVolume = it }, valueRange = 0.1f..1.5f, enabled = !soundcardSettingsLocked)
+                        Slider(value = studioMonitorGain, onValueChange = { studioMonitorGain = it; if (recording && studioLiveRequested) recorder.updateLiveMonitorVolume(it) }, valueRange = 0.1f..1.5f, enabled = !soundcardSettingsLocked)
 
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
