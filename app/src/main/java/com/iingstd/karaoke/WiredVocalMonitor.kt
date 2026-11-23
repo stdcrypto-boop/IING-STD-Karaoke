@@ -21,6 +21,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 class WiredVocalMonitor(private val context: Context) {
     private val active = AtomicBoolean(false)
     @Volatile private var gain = 0.5f
+    @Volatile var inputPeak: Float = 0f
+        private set
+    @Volatile var processedPeak: Float = 0f
+        private set
     @Volatile var studioDsp: StudioLiveDsp? = null
     @Volatile var lastError: String = ""
         private set
@@ -94,7 +98,13 @@ class WiredVocalMonitor(private val context: Context) {
                     while (active.get() && wiredOutput() != null) {
                         val n = record.read(samples, 0, samples.size)
                         if (n <= 0) break
+                        var rawMax = 0
+                        for (i in 0 until n) rawMax = maxOf(rawMax, kotlin.math.abs(samples[i].toInt()))
+                        inputPeak = rawMax / 32768f
                         studioDsp?.process(samples, n)
+                        var effectMax = 0
+                        for (i in 0 until n) effectMax = maxOf(effectMax, kotlin.math.abs(samples[i].toInt()))
+                        processedPeak = effectMax / 32768f
                         val factor = gain
                         for (i in 0 until n) samples[i] = (samples[i] * factor).toInt().coerceIn(-32768, 32767).toShort()
                         // AudioTrack may accept fewer samples than requested. Dropping
@@ -111,6 +121,8 @@ class WiredVocalMonitor(private val context: Context) {
                     lastError = "Monitoring terhenti: " + (e.message ?: e.javaClass.simpleName)
                 } finally {
                     active.set(false)
+                    inputPeak = 0f
+                    processedPeak = 0f
                     runCatching { record.stop() }
                     runCatching { track.pause() }
                     runCatching { track.flush() }
