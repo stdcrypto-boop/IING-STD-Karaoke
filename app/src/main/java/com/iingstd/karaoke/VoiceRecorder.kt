@@ -24,6 +24,9 @@ class VoiceRecorder(private val context: Context) {
     private val wiredRecorder = WiredCaptureRecorder(context)
     private var wiredSession = false
     var wiredMonitoringEnabled = false
+    var studioDsp: StudioLiveDsp?
+        get() = wiredRecorder.studioDsp
+        set(value) { wiredRecorder.studioDsp = value }
     var wiredMonitorVolume = 0.5f
     /** auto, system (analog LIVE), usb, headset, or phone */
     var microphoneSource = "auto"
