@@ -921,9 +921,27 @@ class MainActivity : ComponentActivity() {
                         Text("Studio LIVE (uji coba: EQ real-time)", color = Color.White, fontSize = 12.sp)
                     }
                     if (studioLiveRequested) {
-                        Text("Studio LIVE: efek aplikasi saat ini aktif HANYA ketika tombol REKAM ditekan. Sebelum merekam, slider belum memengaruhi suara mikrofon. Gunakan earphone dan kecilkan efek fisik soundcard; hentikan bila muncul suara dobel atau terlambat.", color = Pink, fontSize = 12.sp)
-                        if (!recording) Text("⚠️ Belum merekam: EQ aplikasi belum aktif pada monitoring sebelum rekaman.", color = Color.Yellow, fontSize = 12.sp)
-                        else Text("● Sedang merekam: EQ Studio LIVE diproses ke monitor dan file WAV.", color = Color.Green, fontSize = 12.sp)
+                        Text("Studio LIVE: tekan AKTIFKAN MONITOR sebelum merekam untuk mendengar EQ langsung. Saat REKAM dimulai, monitor pratinjau berhenti dan pemrosesan yang sama diteruskan ke perekam. Gunakan earphone dan matikan efek fisik F999 NEO untuk menghindari suara ganda.", color = Pink, fontSize = 12.sp)
+                        OutlinedButton(
+                            onClick = {
+                                if (monitorEnabled) {
+                                    wiredMonitor.stop()
+                                    monitorEnabled = false
+                                    recordingStatus = "Monitor Studio LIVE dihentikan."
+                                } else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                    recordingStatus = "Izinkan mikrofon dahulu melalui pengaturan aplikasi atau tombol rekam."
+                                } else {
+                                    studioDsp.reset()
+                                    wiredMonitor.studioDsp = studioDsp
+                                    wiredMonitor.setVolume(studioMonitorGain)
+                                    monitorEnabled = wiredMonitor.start()
+                                    recordingStatus = if (monitorEnabled) "Studio LIVE aktif: atur EQ sambil mendengarkan." else "Monitor gagal: periksa earphone, USB, dan izin mikrofon."
+                                }
+                            },
+                            enabled = !recording,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (monitorEnabled) "⏹ Matikan Monitor Studio LIVE" else "🎧 Aktifkan Monitor Studio LIVE (sebelum rekam)") }
+                        Text(if (recording) "● EQ aktif pada rekaman dan monitor." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
                         Text("🎵 Volume Musik LIVE: ${(studioMusicVolume * 100).toInt()}%", color = Color.White)
@@ -940,7 +958,7 @@ class MainActivity : ComponentActivity() {
                         Text("Compressor: ${(studioCompressor * 100).toInt()}%", color = Color.White)
                         Slider(value = studioCompressor, onValueChange = { studioCompressor = it; studioDsp.compressorAmount = it }, valueRange = 0f..1f, enabled = !soundcardSettingsLocked)
                         Text("Monitor vokal: ${(studioMonitorGain * 100).toInt()}%", color = Color.White)
-                        Slider(value = studioMonitorGain, onValueChange = { studioMonitorGain = it; if (recording && studioLiveRequested) recorder.updateLiveMonitorVolume(it) }, valueRange = 0.1f..1.5f, enabled = !soundcardSettingsLocked)
+                        Slider(value = studioMonitorGain, onValueChange = { studioMonitorGain = it; if (monitorEnabled) wiredMonitor.setVolume(it); if (recording && studioLiveRequested) recorder.updateLiveMonitorVolume(it) }, valueRange = 0.1f..1.5f, enabled = !soundcardSettingsLocked)
 
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
