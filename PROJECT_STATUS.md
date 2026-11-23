@@ -58,3 +58,5 @@ Ship a stable Android karaoke application with a clean vocal recording, music mi
 - 2026-11-23: Added read-only 5-minute health-check workflow, commit `e3ca6b0`.
 - 2026-11-23: Created this project handoff document to prevent drift between GitHub and ChatGPT sessions.
 - Next action: inspect actual preview-to-record handoff and USB routing, then write reproducible tests; separately inspect signing secrets readiness. No claim of audio fix or release yet.
+
+- 2026-11-23 17:32 WIB: Hardened preview-to-record handoff: `WiredVocalMonitor.stop()` now reports whether its audio worker has actually exited; `beginRecording()` refuses to start a competing microphone capture while teardown remains pending. This is a source-level safeguard, NOT proof of USB hardware monitoring. Prior head `8a40c3b`; prior Build Android APK run `45147707537` succeeded. New commit/build status must be checked after push. Remaining: F999 NEO input/output routing and direct-monitor behavior, WAV/live DSP comparison, stable signing secrets, on-device regression. Next: verify CI then inspect USB routing and capture state handling.

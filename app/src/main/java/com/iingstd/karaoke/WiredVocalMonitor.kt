@@ -157,7 +157,7 @@ class WiredVocalMonitor(private val context: Context) {
 
     fun isActive() = active.get()
     @Synchronized
-    fun stop() {
+    fun stop(): Boolean {
         active.set(false)
         // AudioRecord.read() may be blocking. Stopping it allows the worker to
         // leave the loop and release the microphone before recording starts.
@@ -170,5 +170,7 @@ class WiredVocalMonitor(private val context: Context) {
         // Do not clear the worker reference if teardown has not finished:
         // start() must reject a second capture until the old worker exits.
         if (previous?.isAlive == false) worker = null
+        // Recording must not open a second AudioRecord until teardown completes.
+        return previous?.isAlive != true
     }
 }

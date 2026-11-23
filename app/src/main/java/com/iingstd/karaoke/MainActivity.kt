@@ -256,7 +256,10 @@ class MainActivity : ComponentActivity() {
 
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
-                wiredMonitor.stop()
+                if (!wiredMonitor.stop()) {
+                    recordingStatus = "Monitor mikrofon masih berhenti. Tunggu sebentar lalu coba rekam lagi."
+                    return
+                }
                 monitorEnabled = false
                 try {
                     if (youtubeVideoId != null) {
