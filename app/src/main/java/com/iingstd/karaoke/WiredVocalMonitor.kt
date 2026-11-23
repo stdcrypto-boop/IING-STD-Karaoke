@@ -79,7 +79,9 @@ class WiredVocalMonitor(private val context: Context) {
                 it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
             }
             if (usbInput != null && !record.setPreferredDevice(usbInput)) {
-                lastError = "Tidak dapat memilih input USB; Android akan memilih jalur default"
+                lastError = "Tidak dapat memilih input mikrofon USB untuk monitoring"
+                record.release()
+                return false
             }
             val track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -101,12 +103,28 @@ class WiredVocalMonitor(private val context: Context) {
                         lastError = "Mikrofon gagal masuk mode rekam"
                         return@Thread
                     }
+                    if (usbInput != null && record.routedDevice?.id != usbInput.id) {
+                        lastError = "Input monitor bukan mikrofon USB yang dipilih"
+                        return@Thread
+                    }
                     track.play()
                     if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
                         lastError = "Output monitor gagal mulai"
                         return@Thread
                     }
+                    var routeChecks = 0
                     while (active.get() && wiredOutput() != null) {
+                        if (++routeChecks >= 20) {
+                            routeChecks = 0
+                            if (usbInput != null && record.routedDevice?.id != usbInput.id) {
+                                lastError = "Input USB monitor berpindah saat LIVE"
+                                break
+                            }
+                            if (track.routedDevice?.id != device.id) {
+                                lastError = "Output monitor berpindah dari earphone/USB"
+                                break
+                            }
+                        }
                         val n = record.read(samples, 0, samples.size)
                         if (n <= 0) break
                         var rawMax = 0
