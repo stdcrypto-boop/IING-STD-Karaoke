@@ -913,11 +913,23 @@ class MainActivity : ComponentActivity() {
                     }
                     Text("🎛 Mode efek", color = Pink, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = !studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) studioLiveRequested = false }, enabled = !recording && !soundcardSettingsLocked)
+                        RadioButton(selected = !studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) { studioLiveRequested = false; wiredMonitor.stop(); monitorEnabled = false; wiredMonitor.studioDsp = null } }, enabled = !recording && !soundcardSettingsLocked)
                         Text("Soundcard LIVE (aktif, efek fisik F999 NEO)", color = Color.White, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = studioLiveRequested, onClick = { if (!recording && !soundcardSettingsLocked) studioLiveRequested = true }, enabled = !recording && !soundcardSettingsLocked)
+                        RadioButton(selected = studioLiveRequested, onClick = {
+                            if (!recording && !soundcardSettingsLocked) {
+                                studioLiveRequested = true
+                                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    wiredMonitor.stop()
+                                    studioDsp.reset()
+                                    wiredMonitor.studioDsp = studioDsp
+                                    wiredMonitor.setVolume(studioMonitorGain)
+                                    monitorEnabled = wiredMonitor.start()
+                                    recordingStatus = if (monitorEnabled) "Studio LIVE aktif. EQ dapat didengar sebelum merekam." else "Studio LIVE gagal: ${wiredMonitor.lastError}"
+                                } else recordingStatus = "Studio LIVE memerlukan izin mikrofon."
+                            }
+                        }, enabled = !recording && !soundcardSettingsLocked)
                         Text("Studio LIVE (uji coba: EQ real-time)", color = Color.White, fontSize = 12.sp)
                     }
                     if (studioLiveRequested) {
