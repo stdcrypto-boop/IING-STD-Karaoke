@@ -180,6 +180,12 @@ class VoiceRecorder(private val context: Context) {
                             else -> "Input Android (tipe ${routed.type})"
                         }
                         routeNotice = "Input aktif: $label. " + routeNotice
+                        if (microphoneSource == "usb" && routed.type != AudioDeviceInfo.TYPE_USB_DEVICE && routed.type != AudioDeviceInfo.TYPE_USB_HEADSET) {
+                            routeNotice = "PERINGATAN: F999 NEO USB tidak menjadi sumber rekaman! " + routeNotice
+                        }
+                        if (microphoneSource == "system" && routed.type == AudioDeviceInfo.TYPE_BUILTIN_MIC) {
+                            routeNotice = "PERINGATAN: Yang direkam mikrofon HP, bukan keluaran soundcard. " + routeNotice
+                        }
                     }
                 }
                 // Android may override a preferred route; never discard a valid
