@@ -101,6 +101,17 @@ class MainActivity : ComponentActivity() {
             val wiredMonitor = remember { WiredVocalMonitor(this) }
             DisposableEffect(wiredMonitor) { onDispose { wiredMonitor.stop() } }
             var monitorEnabled by remember { mutableStateOf(false) }
+            var previewInputPeak by remember { mutableFloatStateOf(0f) }
+            var previewOutputPeak by remember { mutableFloatStateOf(0f) }
+            LaunchedEffect(monitorEnabled) {
+                while (monitorEnabled) {
+                    previewInputPeak = wiredMonitor.inputPeak
+                    previewOutputPeak = wiredMonitor.processedPeak
+                    delay(120)
+                }
+                previewInputPeak = 0f
+                previewOutputPeak = 0f
+            }
             var monitorVolume by remember { mutableFloatStateOf(1f) }
             var recordWithWiredMonitor by remember { mutableStateOf(false) }
             var recording by remember { mutableStateOf(false) }
@@ -954,6 +965,11 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(if (monitorEnabled) "⏹ Matikan Monitor Studio LIVE" else "🎧 Aktifkan Monitor Studio LIVE (sebelum rekam)") }
                         Text(if (recording) "● EQ aktif pada rekaman dan monitor." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
+                        if (monitorEnabled && !recording) {
+                            Text("Sinyal MIC masuk: ${(previewInputPeak * 100).toInt()}%  |  Setelah EQ: ${(previewOutputPeak * 100).toInt()}%", color = Color.White, fontSize = 12.sp)
+                            LinearProgressIndicator(progress = { previewInputPeak.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                            Text("Jika MIC tetap 0% saat bicara, audio soundcard belum masuk ke aplikasi. Jika MIC bergerak tetapi efek tidak terdengar, periksa jalur output monitoring dan direct monitor soundcard.", color = Color.LightGray, fontSize = 12.sp)
+                        }
                         if (!monitorEnabled && wiredMonitor.lastError.isNotBlank()) Text("⚠ ${wiredMonitor.lastError}", color = Color.Yellow, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
