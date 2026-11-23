@@ -18,6 +18,7 @@ import kotlin.math.abs
  */
 class WiredCaptureRecorder(private val context: Context) {
     private val running = AtomicBoolean(false)
+    @Volatile var studioDsp: StudioLiveDsp? = null
     private val paused = AtomicBoolean(false)
     @Volatile private var monitorGain = 0.5f
     @Volatile private var peak = 0f
@@ -106,6 +107,8 @@ class WiredCaptureRecorder(private val context: Context) {
                             val n = capture.read(samples, 0, samples.size, AudioRecord.READ_BLOCKING)
                             if (n <= 0) break
                             if (paused.get()) continue
+                            // Studio mode: process once, then write and monitor identical PCM.
+                            studioDsp?.process(samples, n)
                             var max = 0
                             var sumSquares = 0.0
                             for (i in 0 until n) {
