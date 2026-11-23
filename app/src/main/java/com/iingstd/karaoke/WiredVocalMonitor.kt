@@ -65,13 +65,16 @@ class WiredVocalMonitor(private val context: Context) {
         var pendingRecord: AudioRecord? = null
         var pendingTrack: AudioTrack? = null
         try {
+            val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val supportsRaw = android.os.Build.VERSION.SDK_INT >= 24 &&
+                manager.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
             val record = AudioRecord(
-                MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
+                if (supportsRaw) MediaRecorder.AudioSource.UNPROCESSED else MediaRecorder.AudioSource.MIC,
+                rate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, maxOf(minInput, frameBytes * 4)
             )
             pendingRecord = record
             if (record.state != AudioRecord.STATE_INITIALIZED) { lastError = "AudioRecord gagal dibuat"; record.release(); return false }
-            val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val usbInput = manager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull {
                 it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
             }
@@ -94,7 +97,15 @@ class WiredVocalMonitor(private val context: Context) {
                 val samples = ShortArray(480)
                 try {
                     record.startRecording()
+                    if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                        lastError = "Mikrofon gagal masuk mode rekam"
+                        return@Thread
+                    }
                     track.play()
+                    if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                        lastError = "Output monitor gagal mulai"
+                        return@Thread
+                    }
                     while (active.get() && wiredOutput() != null) {
                         val n = record.read(samples, 0, samples.size)
                         if (n <= 0) break
