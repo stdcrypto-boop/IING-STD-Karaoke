@@ -225,7 +225,7 @@ class MainActivity : ComponentActivity() {
             var showMicOptions by remember { mutableStateOf(false) }
             var showMixOptions by remember { mutableStateOf(false) }
             var showSoundcardSettings by remember { mutableStateOf(false) }
-            var soundcardSettingsLocked by remember { mutableStateOf(true) }
+            var soundcardSettingsLocked by remember { mutableStateOf(false) }
             var smartAudioEnabled by remember { mutableStateOf(true) }
             var studioLiveRequested by remember { mutableStateOf(false) }
             val studioDsp = remember { StudioLiveDsp() }
@@ -921,7 +921,9 @@ class MainActivity : ComponentActivity() {
                         Text("Studio LIVE (uji coba: EQ real-time)", color = Color.White, fontSize = 12.sp)
                     }
                     if (studioLiveRequested) {
-                        Text("Studio LIVE memutar ulang mikrofon lewat Android; gunakan earphone dan kecilkan efek fisik soundcard. Hentikan mode ini bila terdengar suara dobel atau terlambat. Semua slider di bawah memproses rekaman WAV dan monitoring dari sampel yang sama.", color = Pink, fontSize = 12.sp)
+                        Text("Studio LIVE: efek aplikasi saat ini aktif HANYA ketika tombol REKAM ditekan. Sebelum merekam, slider belum memengaruhi suara mikrofon. Gunakan earphone dan kecilkan efek fisik soundcard; hentikan bila muncul suara dobel atau terlambat.", color = Pink, fontSize = 12.sp)
+                        if (!recording) Text("⚠️ Belum merekam: EQ aplikasi belum aktif pada monitoring sebelum rekaman.", color = Color.Yellow, fontSize = 12.sp)
+                        else Text("● Sedang merekam: EQ Studio LIVE diproses ke monitor dan file WAV.", color = Color.Green, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
                         Text("🎵 Volume Musik LIVE: ${(studioMusicVolume * 100).toInt()}%", color = Color.White)
