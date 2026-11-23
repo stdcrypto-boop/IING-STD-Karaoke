@@ -22,6 +22,8 @@ class WiredVocalMonitor(private val context: Context) {
     private val active = AtomicBoolean(false)
     @Volatile private var gain = 0.5f
     @Volatile var studioDsp: StudioLiveDsp? = null
+    @Volatile var lastError: String = ""
+        private set
     private var worker: Thread? = null
     private var input: AudioRecord? = null
     private var output: AudioTrack? = null
@@ -44,16 +46,17 @@ class WiredVocalMonitor(private val context: Context) {
     // instances before active is set, or stop during initialization.
     @Synchronized
     fun start(): Boolean {
+        lastError = ""
         if (active.get()) return true
         // A previous monitor may still be releasing its AudioRecord. Do not
         // open another microphone while that worker is winding down.
-        if (worker?.isAlive == true) return false
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false
-        val device = wiredOutput() ?: return false
+        if (worker?.isAlive == true) { lastError = "Monitor sebelumnya masih berhenti"; return false }
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { lastError = "Izin mikrofon belum diberikan"; return false }
+        val device = wiredOutput() ?: run { lastError = "Output earphone atau USB tidak ditemukan"; return false }
         val rate = 48000
         val minInput = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val minOutput = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if (minInput <= 0 || minOutput <= 0) return false
+        if (minInput <= 0 || minOutput <= 0) { lastError = "Format PCM 48 kHz tidak didukung"; return false }
         val frameBytes = 960
         var pendingRecord: AudioRecord? = null
         var pendingTrack: AudioTrack? = null
@@ -63,7 +66,14 @@ class WiredVocalMonitor(private val context: Context) {
                 AudioFormat.ENCODING_PCM_16BIT, maxOf(minInput, frameBytes * 4)
             )
             pendingRecord = record
-            if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); return false }
+            if (record.state != AudioRecord.STATE_INITIALIZED) { lastError = "AudioRecord gagal dibuat"; record.release(); return false }
+            val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val usbInput = manager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull {
+                it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+            }
+            if (usbInput != null && !record.setPreferredDevice(usbInput)) {
+                lastError = "Tidak dapat memilih input USB; Android akan memilih jalur default"
+            }
             val track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
@@ -71,6 +81,7 @@ class WiredVocalMonitor(private val context: Context) {
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
             pendingTrack = track
             if (track.state != AudioTrack.STATE_INITIALIZED || !track.setPreferredDevice(device)) {
+                lastError = "Output monitor tidak dapat diarahkan ke earphone/USB"
                 track.release(); record.release(); return false
             }
             input = record; output = track
@@ -96,7 +107,8 @@ class WiredVocalMonitor(private val context: Context) {
                         }
                         if (written < n) break
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    lastError = "Monitoring terhenti: " + (e.message ?: e.javaClass.simpleName)
                 } finally {
                     active.set(false)
                     runCatching { record.stop() }
@@ -108,7 +120,8 @@ class WiredVocalMonitor(private val context: Context) {
                 }
             }.apply { name = "IING-Wired-Vocal-Monitor"; isDaemon = true; start() }
             return true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            lastError = "Monitor gagal dimulai: " + (e.message ?: e.javaClass.simpleName)
             active.set(false)
             // Construction can fail before input/output are assigned. Release
             // the local handles as well, otherwise the microphone stays reserved.
