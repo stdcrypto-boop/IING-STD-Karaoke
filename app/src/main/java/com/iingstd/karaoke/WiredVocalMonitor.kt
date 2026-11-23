@@ -153,7 +153,13 @@ class WiredVocalMonitor(private val context: Context) {
                         for (i in 0 until n) effectMax = maxOf(effectMax, kotlin.math.abs(samples[i].toInt()))
                         processedPeak = effectMax / 32768f
                         val factor = gain
-                        for (i in 0 until n) samples[i] = (samples[i] * factor).toInt().coerceIn(-32768, 32767).toShort()
+                        for (i in 0 until n) {
+                            val value = samples[i].toInt() * factor
+                            // Match the recording monitor's bounded gain curve, avoiding
+                            // hard clipping when monitor volume exceeds 100%.
+                            samples[i] = (value / (1f + kotlin.math.abs(value) / 30000f)).toInt()
+                                .coerceIn(-32768, 32767).toShort()
+                        }
                         // AudioTrack may accept fewer samples than requested. Dropping
                         // the remainder creates audible gaps and crackling on busy phones.
                         var written = 0
