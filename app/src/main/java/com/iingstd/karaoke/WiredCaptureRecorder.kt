@@ -111,6 +111,12 @@ class WiredCaptureRecorder(private val context: Context) {
                             }
                         }
                         monitor.play()
+                        check(monitor.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                            "Output monitor gagal mulai saat rekaman"
+                        }
+                        check(monitor.routedDevice?.id == device.id) {
+                            "Output monitor bukan earphone/USB yang dipilih"
+                        }
                         // Block I/O avoids thousands of tiny file writes per second,
                         // which previously starved the audio callback and caused crackling.
                         val samples = ShortArray(240)
@@ -153,6 +159,10 @@ class WiredCaptureRecorder(private val context: Context) {
                                 }
                                 if (preferred != null && capture.routedDevice?.id != preferred.id) {
                                     failure = IllegalStateException("Input mikrofon LIVE OTG berpindah saat rekaman")
+                                    break
+                                }
+                                if (monitor.routedDevice?.id != device.id) {
+                                    failure = IllegalStateException("Output monitor LIVE berpindah dari earphone/USB")
                                     break
                                 }
                             }
