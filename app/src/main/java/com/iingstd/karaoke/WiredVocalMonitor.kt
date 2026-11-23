@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class WiredVocalMonitor(private val context: Context) {
     private val active = AtomicBoolean(false)
     @Volatile private var gain = 0.5f
+    @Volatile var studioDsp: StudioLiveDsp? = null
     private var worker: Thread? = null
     private var input: AudioRecord? = null
     private var output: AudioTrack? = null
@@ -82,6 +83,7 @@ class WiredVocalMonitor(private val context: Context) {
                     while (active.get() && wiredOutput() != null) {
                         val n = record.read(samples, 0, samples.size)
                         if (n <= 0) break
+                        studioDsp?.process(samples, n)
                         val factor = gain
                         for (i in 0 until n) samples[i] = (samples[i] * factor).toInt().coerceIn(-32768, 32767).toShort()
                         // AudioTrack may accept fewer samples than requested. Dropping
