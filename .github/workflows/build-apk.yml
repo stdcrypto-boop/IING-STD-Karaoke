@@ -34,6 +34,26 @@ jobs:
           path: |
             app/build/reports/tests/
             app/build/test-results/
+      - name: Configure persistent APK signing (if secrets are set)
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.IING_SIGNING_KEYSTORE_B64 }}
+          IING_SIGNING_STORE_PASSWORD: ${{ secrets.IING_SIGNING_STORE_PASSWORD }}
+          IING_SIGNING_KEY_ALIAS: ${{ secrets.IING_SIGNING_KEY_ALIAS }}
+          IING_SIGNING_KEY_PASSWORD: ${{ secrets.IING_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SIGNING_KEYSTORE_B64" ] && [ -n "$IING_SIGNING_STORE_PASSWORD" ] && [ -n "$IING_SIGNING_KEY_ALIAS" ] && [ -n "$IING_SIGNING_KEY_PASSWORD" ]; then
+            printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/iing-karaoke-signing.jks"
+            echo "IING_SIGNING_KEYSTORE=$RUNNER_TEMP/iing-karaoke-signing.jks" >> "$GITHUB_ENV"
+            echo "IING_SIGNING_STORE_PASSWORD=$IING_SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "IING_SIGNING_KEY_ALIAS=$IING_SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "IING_SIGNING_KEY_PASSWORD=$IING_SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNING_MODE=persistent" >> "$GITHUB_ENV"
+            echo "Persistent signing configured."
+          else
+            echo "SIGNING_MODE=ephemeral-debug" >> "$GITHUB_ENV"
+            echo "::warning::Signing secrets absent: this debug APK may conflict with previous builds. Do not distribute as an updatable APK."
+          fi
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
       - name: Verify APK package and checksum
@@ -44,6 +64,7 @@ jobs:
           unzip -t "$APK" | tail -n 2
           sha256sum "$APK" | tee app/build/outputs/apk/debug/SHA256SUMS.txt
           ls -lh "$APK"
+          echo "Signing mode: $SIGNING_MODE"
       - uses: actions/upload-artifact@v4
         with:
           name: IING-STD-Karaoke-debug
