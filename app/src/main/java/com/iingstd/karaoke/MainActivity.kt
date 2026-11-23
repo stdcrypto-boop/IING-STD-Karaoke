@@ -945,7 +945,7 @@ class MainActivity : ComponentActivity() {
                                     studioDsp.reset()
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
-                                    monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "system" else microphoneSource)
+                                    monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "auto" else microphoneSource)
                                     recordingStatus = if (monitorEnabled) "Studio LIVE aktif. EQ dapat didengar sebelum merekam." else "Studio LIVE gagal: ${wiredMonitor.lastError}"
                                 } else recordingStatus = "Studio LIVE memerlukan izin mikrofon."
                             }
@@ -967,7 +967,7 @@ class MainActivity : ComponentActivity() {
                                     studioDsp.reset()
                                     wiredMonitor.studioDsp = studioDsp
                                     wiredMonitor.setVolume(studioMonitorGain)
-                                    monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "system" else microphoneSource)
+                                    monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "auto" else microphoneSource)
                                     recordingStatus = if (monitorEnabled) "Studio LIVE aktif: atur EQ sambil mendengarkan." else "Monitor gagal: ${wiredMonitor.lastError}"
                                 }
                             },
@@ -1036,7 +1036,7 @@ class MainActivity : ComponentActivity() {
                         else if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) recordingStatus = "Berikan izin mikrofon melalui tombol rekaman terlebih dahulu."
                         else {
                             wiredMonitor.setVolume(monitorVolume)
-                            monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "system" else microphoneSource)
+                            monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "auto" else microphoneSource)
                             recordingStatus = if (monitorEnabled) "Monitoring headphone kabel aktif (mode uji)." else "Hubungkan headphone kabel/USB dan periksa izin mikrofon."
                         }
                     }, enabled = !recording, modifier = Modifier.fillMaxWidth()) { Text(if (monitorEnabled) "⏹ Matikan suara balik" else "🎧 Uji suara balik headphone") }
