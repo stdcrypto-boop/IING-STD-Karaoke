@@ -39,7 +39,10 @@ class WiredVocalMonitor(private val context: Context) {
         }
     }
 
-    // Serialize start/stop so two callers cannot initialize separate AudioRecord\n    // instances before active is set, or stop during initialization.\n    @Synchronized\n    fun start(): Boolean {
+    // Serialize start/stop so two callers cannot initialize separate AudioRecord
+    // instances before active is set, or stop during initialization.
+    @Synchronized
+    fun start(): Boolean {
         if (active.get()) return true
         // A previous monitor may still be releasing its AudioRecord. Do not
         // open another microphone while that worker is winding down.
@@ -109,7 +112,8 @@ class WiredVocalMonitor(private val context: Context) {
     }
 
     fun isActive() = active.get()
-    @Synchronized\n    fun stop() {
+    @Synchronized
+    fun stop() {
         active.set(false)
         // AudioRecord.read() may be blocking. Stopping it allows the worker to
         // leave the loop and release the microphone before recording starts.
