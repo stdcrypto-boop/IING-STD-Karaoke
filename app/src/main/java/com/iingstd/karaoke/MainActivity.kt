@@ -938,22 +938,21 @@ class MainActivity : ComponentActivity() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = studioLiveRequested, onClick = {
                             if (!recording && !soundcardSettingsLocked) {
-                                studioLiveRequested = true
-                                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                    wiredMonitor.stop()
-                                    studioDsp.outputGain = studioVocalGain
-                                    studioDsp.reset()
-                                    wiredMonitor.studioDsp = studioDsp
-                                    wiredMonitor.setVolume(studioMonitorGain)
-                                    monitorEnabled = wiredMonitor.start(if (microphoneSource == "live") "auto" else microphoneSource)
-                                    recordingStatus = if (monitorEnabled) "Studio LIVE aktif. EQ dapat didengar sebelum merekam." else "Studio LIVE gagal: ${wiredMonitor.lastError}"
-                                } else recordingStatus = "Studio LIVE memerlukan izin mikrofon."
+                                if (!studioLiveRequested) {
+                                    if (wiredMonitor.stop()) {
+                                        monitorEnabled = false
+                                        studioLiveRequested = true
+                                        recordingStatus = "Studio LIVE dipilih. Monitor digital belum aktif."
+                                    } else {
+                                        recordingStatus = "Monitor sebelumnya masih berhenti. Coba pilih Studio LIVE lagi."
+                                    }
+                                }
                             }
                         }, enabled = !recording && !soundcardSettingsLocked)
                         Text("Studio LIVE (uji coba: EQ real-time)", color = Color.White, fontSize = 12.sp)
                     }
                     if (studioLiveRequested) {
-                        Text("Studio LIVE: tekan AKTIFKAN MONITOR sebelum merekam untuk mendengar EQ langsung. Saat REKAM dimulai, monitor pratinjau berhenti dan pemrosesan yang sama diteruskan ke perekam. Gunakan earphone dan matikan efek fisik F999 NEO untuk menghindari suara ganda.", color = Pink, fontSize = 12.sp)
+                        Text("Studio LIVE: tekan AKTIFKAN MONITOR sebelum merekam untuk mendengar EQ langsung. Saat REKAM dimulai, monitor pratinjau berhenti dan pemrosesan yang sama diteruskan ke perekam. Gunakan earphone. Jika monitor langsung F999 NEO sudah terdengar, biarkan monitor digital nonaktif untuk menghindari suara ganda. Efek fisik dan monitor langsung adalah pengaturan perangkat yang terpisah.", color = Pink, fontSize = 12.sp)
                         OutlinedButton(
                             onClick = {
                                 if (monitorEnabled) {
