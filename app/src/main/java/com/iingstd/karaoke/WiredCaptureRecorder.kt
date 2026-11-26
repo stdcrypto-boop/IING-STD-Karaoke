@@ -45,16 +45,16 @@ class WiredCaptureRecorder(private val context: Context) {
         }
     }
 
-    fun start(gain: Float, microphoneSource: String = "auto"): Uri {
+    fun start(gain: Float, microphoneSource: String = "auto", monitoring: Boolean = true): Uri {
         check(!running.get()) { "Capture already running" }
         // A failed worker may have stopped itself while its WAV and audio handles
         // still await stop() cleanup. Never overwrite that session or open a
         // competing microphone capture before it has been finalized.
         check(thread == null && file == null) { "Sesi rekaman sebelumnya belum diselesaikan" }
-        val device = wiredOutput() ?: error("Headphone kabel tidak terdeteksi")
+        val device = if (monitoring) wiredOutput() ?: error("Headphone kabel tidak terdeteksi") else null
         val rate = 48000
         val inputMin = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        val outputMin = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val outputMin = if (monitoring) AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT) else 1
         check(inputMin > 0 && outputMin > 0) { "Format audio tidak didukung" }
         val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "IING STD Karaoke")
         check(dir.exists() || dir.mkdirs()) { "Tidak dapat membuat folder rekaman" }
@@ -79,12 +79,14 @@ class WiredCaptureRecorder(private val context: Context) {
             if (preferred != null && !input.setPreferredDevice(preferred)) {
                 error("Gagal memilih mikrofon ${preferred.productName}; rekaman dibatalkan agar tidak memakai input yang salah")
             }
+            if (device != null) {
             output = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setBufferSizeInBytes(maxOf(outputMin * 2, 8192))
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
             check(output.state == AudioTrack.STATE_INITIALIZED && output.setPreferredDevice(device)) { "Tidak bisa mengarahkan suara ke headphone" }
+            }
             val raf = RandomAccessFile(destination, "rw")
             try { raf.setLength(0); raf.write(ByteArray(44)) } finally { raf.close() }
             file = destination
@@ -95,7 +97,7 @@ class WiredCaptureRecorder(private val context: Context) {
             paused.set(false)
             running.set(true)
             val capture = requireNotNull(input)
-            val monitor = requireNotNull(output)
+            val monitor = output
             thread = Thread {
                 var bytes = 0L
                 try {
@@ -114,12 +116,14 @@ class WiredCaptureRecorder(private val context: Context) {
                                 "Input mikrofon berubah: dipilih ${preferred.productName}, aktif ${routed?.productName ?: "tidak diketahui"}"
                             }
                         }
+                        if (monitor != null && device != null) {
                         monitor.play()
                         check(monitor.playState == AudioTrack.PLAYSTATE_PLAYING) {
                             "Output monitor gagal mulai saat rekaman"
                         }
                         check(monitor.routedDevice?.id == device.id) {
                             "Output monitor bukan earphone/USB yang dipilih"
+                        }
                         }
                         // Block I/O avoids thousands of tiny file writes per second,
                         // which previously starved the audio callback and caused crackling.
@@ -160,7 +164,7 @@ class WiredCaptureRecorder(private val context: Context) {
                             // Check physical output route periodically, not on every buffer.
                             if (++routeCheck >= 20) {
                                 routeCheck = 0
-                                if (wiredOutput() == null) {
+                                if (monitor != null && wiredOutput() == null) {
                                     failure = IllegalStateException("Output earphone/USB terputus")
                                     break
                                 }
@@ -168,11 +172,12 @@ class WiredCaptureRecorder(private val context: Context) {
                                     failure = IllegalStateException("Input mikrofon LIVE OTG berpindah saat rekaman")
                                     break
                                 }
-                                if (monitor.routedDevice?.id != device.id) {
+                                if (monitor != null && monitor.routedDevice?.id != device?.id) {
                                     failure = IllegalStateException("Output monitor LIVE berpindah dari earphone/USB")
                                     break
                                 }
                             }
+                            if (monitor != null) {
                             var offset = 0
                             while (offset < n && running.get()) {
                                 val written = monitor.write(listen, offset, n - offset, AudioTrack.WRITE_BLOCKING)
@@ -186,6 +191,7 @@ class WiredCaptureRecorder(private val context: Context) {
                                 if (running.get() && failure == null) failure = IllegalStateException("Output monitoring LIVE terputus sebelum seluruh audio dikirim")
                                 break
                             }
+                            }
                         }
                         writeHeader(wav, bytes, rate)
                     }
@@ -193,10 +199,10 @@ class WiredCaptureRecorder(private val context: Context) {
                 finally {
                     running.set(false)
                     runCatching { capture.stop() }
-                    runCatching { monitor.pause() }
-                    runCatching { monitor.flush() }
+                    runCatching { monitor?.pause() }
+                    runCatching { monitor?.flush() }
                     runCatching { capture.release() }
-                    runCatching { monitor.release() }
+                    runCatching { monitor?.release() }
                     peak = 0f
                 }
             }.apply { name = "IING-Wired-Record-Monitor"; start() }
