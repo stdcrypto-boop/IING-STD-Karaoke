@@ -256,6 +256,7 @@ class MainActivity : ComponentActivity() {
 
             var sessionExternalAudio by remember { mutableStateOf(false) }
             fun beginRecording() {
+                val studioMonitorRequested = studioLiveRequested && monitorEnabled && wiredMonitor.isActive()
                 if (!wiredMonitor.stop()) {
                     recordingStatus = "Monitor mikrofon masih berhenti. Tunggu sebentar lalu coba rekam lagi."
                     return
@@ -332,7 +333,7 @@ class MainActivity : ComponentActivity() {
                     // External soundcards often have zero-latency direct monitoring.
                     // Smart mode avoids a second, delayed monitoring signal by default.
                     // Explicit opt-in: software monitoring can be delayed on some USB soundcards.
-                    recorder.wiredMonitoringEnabled = if (studioLiveRequested) true else recordWithWiredMonitor && !hasExternalInput
+                    recorder.wiredMonitoringEnabled = if (studioLiveRequested) studioMonitorRequested else recordWithWiredMonitor && !hasExternalInput
                     recorder.studioDsp = if (studioLiveRequested) studioDsp.also { it.outputGain = studioVocalGain; it.reset() } else null
                     recorder.wiredMonitorVolume = if (studioLiveRequested) studioMonitorGain else monitorVolume
                     val captureStartNs = android.os.SystemClock.elapsedRealtimeNanos()
@@ -973,7 +974,7 @@ class MainActivity : ComponentActivity() {
                             enabled = !recording,
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(if (monitorEnabled) "⏹ Matikan Monitor Studio LIVE" else "🎧 Aktifkan Monitor Studio LIVE (sebelum rekam)") }
-                        Text(if (recording) "● EQ aktif pada rekaman dan monitor." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
+                        Text(if (recording) "● EQ aktif pada rekaman; monitor mengikuti pilihan sebelum rekam." else if (monitorEnabled) "● EQ aktif pada monitor pratinjau." else "○ Tekan Aktifkan Monitor agar EQ terdengar sebelum merekam.", color = Color.LightGray, fontSize = 12.sp)
                         if (!monitorEnabled && wiredMonitor.lastError.isNotBlank()) Text("⚠ ${wiredMonitor.lastError}", color = Color.Yellow, fontSize = 12.sp)
                         Text("🎚 Volume Vokal LIVE (monitor + rekaman): ${(studioVocalGain * 100).toInt()}%", color = Color.White)
                         Slider(value = studioVocalGain, onValueChange = { studioVocalGain = it; studioDsp.outputGain = it }, valueRange = 0f..2f, enabled = !soundcardSettingsLocked)
