@@ -71,8 +71,8 @@ class VoiceRecorder(private val context: Context) {
     fun start(preferExternalMic: Boolean = false): Uri {
         routeNotice = ""
         check(!isRecording) { "Recording already in progress" }
-        if (wiredMonitoringEnabled) {
-            val uri = wiredRecorder.start(wiredMonitorVolume, microphoneSource)
+        if (wiredMonitoringEnabled || studioDsp != null) {
+            val uri = wiredRecorder.start(wiredMonitorVolume, microphoneSource, monitoring = wiredMonitoringEnabled)
             wiredSession = true
             paused = false
             return uri
